@@ -11,6 +11,10 @@ on:
         description: "Run ID that produced the CallShield-archive artifact (from build-ios-dsym job)"
         required: true
         type: string
+      artifact_name:
+        description: "Artifact name (default: CallShield-archive)"
+        required: false
+        type: string
 
 env:
   NODE_VERSION: "20"
@@ -27,7 +31,7 @@ jobs:
       - name: Download archive artifact
         uses: actions/download-artifact@v4
         with:
-          name: CallShield-archive
+          name: ${{ inputs.artifact_name != '' && inputs.artifact_name || 'CallShield-archive' }}
           path: artifacts
           repository: ${{ github.repository }}
           run-id: ${{ inputs.artifact_run_id }}
