@@ -1,2 +1,5 @@
+packages:
+  - .
+  - backend/**
 ignoredBuiltDependencies:
   - react-native-nitro-modules
