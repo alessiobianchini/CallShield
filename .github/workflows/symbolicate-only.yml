@@ -15,6 +15,7 @@ on:
         description: "Artifact name (default: CallShield-archive)"
         required: false
         type: string
+        default: CallShield-archive
 
 env:
   NODE_VERSION: "20"
@@ -35,7 +36,7 @@ jobs:
       - name: Download archive artifact
         uses: actions/download-artifact@v4
         with:
-          name: ${{ inputs.artifact_name != '' && inputs.artifact_name || 'CallShield-archive' }}
+          name: ${{ inputs.artifact_name || 'CallShield-archive' }}
           path: artifacts
           repository: ${{ github.repository }}
           run-id: ${{ inputs.artifact_run_id }}
