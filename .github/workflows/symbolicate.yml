@@ -362,11 +362,11 @@ jobs:
         run: |
           set -euo pipefail
           BASE=$(python - <<'PY'
-import re
-text = open("crash.txt","r",encoding="utf-8",errors="ignore").read()
-m = re.search(r'0x([0-9a-fA-F]+)\s+-\s+0x[0-9a-fA-F]+\s+callshieldnative', text)
-print("0x"+m.group(1) if m else "0x100cb0000")
-PY
+            import re
+            text = open("crash.txt","r",encoding="utf-8",errors="ignore").read()
+            m = re.search(r'0x([0-9a-fA-F]+)\s+-\s+0x[0-9a-fA-F]+\s+callshieldnative', text)
+            print("0x"+m.group(1) if m else "0x100cb0000")
+          PY
           )
           echo "Using base address: $BASE"
 
