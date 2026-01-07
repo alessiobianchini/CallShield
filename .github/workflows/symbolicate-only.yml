@@ -1,0 +1,118 @@
+name: Symbolicate Crash (only)
+
+on:
+  workflow_dispatch:
+    inputs:
+      crash_log:
+        description: "Crash log text (.crash/.ips) to symbolicate"
+        required: true
+        type: string
+      artifact_run_id:
+        description: "Run ID that produced the CallShield-archive artifact (from build-ios-dsym job)"
+        required: true
+        type: string
+
+env:
+  NODE_VERSION: "20"
+  PNPM_STORE_PATH: /Users/runner/.pnpm-store
+
+jobs:
+  symbolicate:
+    runs-on: macOS-latest
+
+    steps:
+      - name: Checkout (for scripts only)
+        uses: actions/checkout@v4
+
+      - name: Download archive artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: CallShield-archive
+          path: artifacts
+          repository: ${{ github.repository }}
+          run-id: ${{ inputs.artifact_run_id }}
+
+      - name: Locate dSYM and app
+        shell: bash
+        run: |
+          set -euo pipefail
+          DSYM=$(find artifacts -name "callshieldnative.app.dSYM" -print | head -1 || true)
+          APP=$(find artifacts -name "callshieldnative.app" -print | head -1 || true)
+          if [ -z "$DSYM" ] || [ -z "$APP" ]; then
+            echo "dSYM or .app not found in artifact. Ensure build-ios-dsym job succeeded."
+            find artifacts -maxdepth 3 -type f -o -type d | head -n 200
+            exit 1
+          fi
+          echo "DSYM=$DSYM" >> "$GITHUB_ENV"
+          echo "APP=$APP" >> "$GITHUB_ENV"
+
+      - name: Save crash log input
+        shell: bash
+        env:
+          CRASH_LOG: ${{ inputs.crash_log }}
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+import os
+
+log = os.environ.get("CRASH_LOG", "")
+lines = log.replace("\r\n", "\n").splitlines()
+while lines and lines[-1].strip() == "EOF":
+    lines.pop()
+text = "\n".join(lines)
+if text:
+    text += "\n"
+with open("crash.txt", "w", encoding="utf-8") as f:
+    f.write(text)
+print(f"Crash log saved to crash.txt (lines: {len(lines)})")
+PY
+
+      - name: Symbolicate with atos
+        shell: bash
+        run: |
+          set -euo pipefail
+          BASE=$(perl -0777 -ne 'if(/0x([0-9A-Fa-f]+)\s+-\s+0x[0-9A-Fa-f]+\s+callshieldnative/){print "0x$1\n"}else{print "0x100cb0000\n"}' crash.txt)
+          echo "Using base address: $BASE"
+
+          tmp_addrs=$(mktemp)
+          grep -Eo "0x[0-9a-fA-F]{6,}" crash.txt | sort -u | head -n 200 > "$tmp_addrs"
+          if [ ! -s "$tmp_addrs" ]; then
+            echo "No addresses found in crash log"
+            exit 1
+          fi
+
+          BIN="$DSYM/Contents/Resources/DWARF/callshieldnative"
+          echo "Binary: $BIN"
+          echo "---- atos output ----"
+          while IFS= read -r a; do
+            [ -z "$a" ] && continue
+            echo -n "$a -> "
+            xcrun atos -o "$BIN" -l "$BASE" "$a" || true
+          done < "$tmp_addrs"
+
+      - name: Full symbolicated crash (if tool available)
+        shell: bash
+        run: |
+          set -euo pipefail
+          DEV_DIR="$(xcode-select -p)"
+          TOOL="$DEV_DIR/../SharedFrameworks/DVTFoundation.framework/Versions/A/Resources/symbolicatecrash"
+          if [ ! -x "$TOOL" ]; then
+            echo "symbolicatecrash not available under $TOOL; skipping full symbolication."
+            exit 0
+          fi
+          export DEVELOPER_DIR="$DEV_DIR"
+          if ! "$TOOL" crash.txt "$DSYM" > crash.symbolicated.txt; then
+            echo "symbolicatecrash failed (likely malformed crash log); keeping atos output only."
+            exit 0
+          fi
+          echo "---- symbolicated head ----"
+          head -n 120 crash.symbolicated.txt || true
+
+      - name: Upload symbolication results
+        uses: actions/upload-artifact@v4
+        with:
+          name: symbolicated-crash
+          path: |
+            crash.txt
+            crash.symbolicated.txt
+          if-no-files-found: ignore
