@@ -40,6 +40,7 @@ jobs:
           path: artifacts
           repository: ${{ github.repository }}
           run-id: ${{ inputs.artifact_run_id }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Locate dSYM and app
         shell: bash
