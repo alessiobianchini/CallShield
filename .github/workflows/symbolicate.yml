@@ -1,0 +1,405 @@
+name: Symbolicate Crash
+
+on:
+  workflow_dispatch:
+    inputs:
+      crash_log:
+        description: "Crash log text (.crash/.ips) to symbolicate"
+        required: true
+        type: string
+      build_number:
+        description: "CFBundleVersion to set (defaults to run_number)"
+        required: false
+        type: string
+      archive_zip_url:
+        description: "Optional URL to CallShield-archive.zip (skips build if provided)"
+        required: false
+        type: string
+      archive_upload_path:
+        description: "Override path to archive or folder with Products/dSYMs (optional)"
+        required: false
+        type: string
+
+env:
+  NODE_VERSION: "20"
+  WORKING_DIRECTORY: .
+  IOS_WORKSPACE: ios/callshieldnative.xcworkspace
+  IOS_SCHEME: callshieldnative
+  ARCHIVE_PATH: build/CallShield.xcarchive
+  EXPORT_PATH: build/ipa
+  BUILD_NUMBER: ${{ github.event.inputs.build_number || github.run_number }}
+  PNPM_STORE_PATH: /Users/runner/.pnpm-store
+  EXPO_PUBLIC_API_BASE_URL: ${{ secrets.BASE_URL }}
+  EXPO_PUBLIC_FUNCTION_KEY: ${{ secrets.FUNCTION_KEY }}
+  ARCHIVE_UPLOAD_PATH: ${{ github.event.inputs.archive_upload_path != '' && github.event.inputs.archive_upload_path || 'build/CallShield.xcarchive' }}
+
+jobs:
+  build-ios-dsym:
+    runs-on: macos-latest
+    environment: IOS
+
+    steps:
+      - name: Use external archive zip if provided
+        if: ${{ github.event.inputs.archive_zip_url != '' }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p external
+          echo "Downloading archive zip from: ${{ github.event.inputs.archive_zip_url }}"
+          curl -L "${{ github.event.inputs.archive_zip_url }}" -o external/archive.zip
+          unzip -q external/archive.zip -d external/unzipped
+          # Try to locate a .xcarchive; otherwise use the unzipped root if it already contains Products/dSYMs
+          XCARCHIVE=$(find external/unzipped -maxdepth 3 -name "*.xcarchive" -type d | head -n 1 || true)
+          if [ -z "$XCARCHIVE" ]; then
+            if [ -d external/unzipped/Products ] && [ -d external/unzipped/dSYMs ]; then
+              XCARCHIVE="external/unzipped"
+            else
+              echo "Unable to find .xcarchive or Products/dSYMs in the provided zip"
+              find external/unzipped -maxdepth 3 -type d -print
+              exit 1
+            fi
+          fi
+          echo "Using archive path: $XCARCHIVE"
+          echo "ARCHIVE_UPLOAD_PATH=$XCARCHIVE" >> "$GITHUB_ENV"
+
+      - name: Checkout
+        uses: actions/checkout@v4
+        if: ${{ github.event.inputs.archive_zip_url == '' }}
+
+      - name: Install pnpm
+        run: npm install -g pnpm
+        if: ${{ github.event.inputs.archive_zip_url == '' }}
+
+      - name: Precreate pnpm store dir (for setup-node cache)
+        shell: bash
+        if: ${{ github.event.inputs.archive_zip_url == '' }}
+        run: |
+          set -euo pipefail
+          pnpm config set store-dir "${{ env.PNPM_STORE_PATH }}"
+          STORE_PATH=$(pnpm store path)
+          mkdir -p "$STORE_PATH"
+          echo "pnpm store path (precreate): $STORE_PATH"
+
+      - name: Setup Node (with pnpm cache)
+        uses: actions/setup-node@v4
+        if: ${{ github.event.inputs.archive_zip_url == '' }}
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+          cache-dependency-path: pnpm-lock.yaml
+
+      - name: Enable corepack + pin pnpm
+        shell: bash
+        if: ${{ github.event.inputs.archive_zip_url == '' }}
+        run: |
+          set -euo pipefail
+          corepack enable
+          corepack prepare pnpm@9 --activate
+          pnpm --version
+
+      - name: Ensure cache dirs exist
+        shell: bash
+        if: ${{ github.event.inputs.archive_zip_url == '' }}
+        run: |
+          set -euo pipefail
+          mkdir -p "${{ env.PNPM_STORE_PATH }}"
+          mkdir -p "$HOME/Library/Caches/CocoaPods" "$HOME/.cocoapods"
+          echo "pnpm store-dir: $(pnpm config get store-dir 2>/dev/null || true)"
+          echo "Ensured cache dirs exist."
+
+      - name: Ensure pnpm store dir exists (fix setup-node post cache)
+        shell: bash
+        if: ${{ github.event.inputs.archive_zip_url == '' }}
+        run: |
+          set -euo pipefail
+          mkdir -p "${{ env.PNPM_STORE_PATH }}"
+          pnpm config set store-dir "${{ env.PNPM_STORE_PATH }}"
+          echo "pnpm store-dir: $(pnpm config get store-dir)"
+          echo "pnpm store path: $(pnpm store path)"
+          ls -la "${{ env.PNPM_STORE_PATH }}" || true
+
+      - name: Install JS dependencies
+        working-directory: ${{ env.WORKING_DIRECTORY }}
+        shell: bash
+        if: ${{ github.event.inputs.archive_zip_url == '' }}
+        run: |
+          set -euo pipefail
+          pnpm install --no-frozen-lockfile
+
+      - name: Install CocoaPods
+        working-directory: ${{ env.WORKING_DIRECTORY }}/ios
+        shell: bash
+        if: ${{ github.event.inputs.archive_zip_url == '' }}
+        run: |
+          set -euo pipefail
+          pod --version
+
+          pod install --repo-update || {
+            echo "Retry pod install after cleanup..."
+            rm -rf Pods
+            pod cache clean --all || true
+            pod install --repo-update
+          }
+
+      - name: Validate signing secrets
+        shell: bash
+        env:
+          IOS_CERT_P12: ${{ secrets.IOS_CERT_P12 }}
+          IOS_PROVISION_PROFILE: ${{ secrets.IOS_PROVISION_PROFILE }}
+          KEYCHAIN_PASSWORD: ${{ secrets.KEYCHAIN_PASSWORD }}
+          IOS_CERT_PASSWORD: ${{ secrets.IOS_CERT_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          BUNDLE_ID: ${{ secrets.BUNDLE_ID }}
+        if: ${{ github.event.inputs.archive_zip_url == '' }}
+        run: |
+          set -euo pipefail
+          for v in IOS_CERT_P12 IOS_PROVISION_PROFILE KEYCHAIN_PASSWORD IOS_CERT_PASSWORD APPLE_TEAM_ID BUNDLE_ID; do
+            if [ -z "${!v}" ]; then
+              echo "Missing or empty: $v"
+              exit 1
+            fi
+          done
+
+      - name: Bump build number (CFBundleVersion)
+        shell: bash
+        env:
+          BUILD_NUMBER: ${{ env.BUILD_NUMBER }}
+        if: ${{ github.event.inputs.archive_zip_url == '' }}
+        run: |
+          set -euo pipefail
+          PLIST="ios/callshieldnative/Info.plist"
+          if [ ! -f "$PLIST" ]; then
+            echo "Info.plist not found at $PLIST"
+            exit 1
+          fi
+          /usr/libexec/PlistBuddy -c "Set :CFBundleVersion $BUILD_NUMBER" "$PLIST" || \
+            /usr/libexec/PlistBuddy -c "Add :CFBundleVersion string $BUILD_NUMBER" "$PLIST"
+          echo "CFBundleVersion set to:"
+          /usr/libexec/PlistBuddy -c "Print :CFBundleVersion" "$PLIST"
+
+      - name: Decode certificate + provisioning profile
+        shell: bash
+        env:
+          IOS_CERT_P12: ${{ secrets.IOS_CERT_P12 }}
+          IOS_PROVISION_PROFILE: ${{ secrets.IOS_PROVISION_PROFILE }}
+        if: ${{ github.event.inputs.archive_zip_url == '' }}
+        run: |
+          set -euo pipefail
+          mkdir -p "$HOME/certs"
+
+          printf '%s' "$IOS_CERT_P12" | tr -d '\n\r ' | base64 --decode > "$HOME/certs/dist.p12"
+          printf '%s' "$IOS_PROVISION_PROFILE" | tr -d '\n\r ' | base64 --decode > "$HOME/certs/profile.mobileprovision"
+
+          ls -l "$HOME/certs/dist.p12" "$HOME/certs/profile.mobileprovision"
+
+      - name: Validate p12 password (metadata only)
+        shell: bash
+        env:
+          IOS_CERT_PASSWORD: ${{ secrets.IOS_CERT_PASSWORD }}
+        if: ${{ github.event.inputs.archive_zip_url == '' }}
+        run: |
+          set -euo pipefail
+          openssl pkcs12 -in "$HOME/certs/dist.p12" -info -noout -passin pass:"$IOS_CERT_PASSWORD"
+
+      - name: Create keychain + import cert/key (robust workaround)
+        shell: bash
+        env:
+          KEYCHAIN_PASSWORD: ${{ secrets.KEYCHAIN_PASSWORD }}
+          IOS_CERT_PASSWORD: ${{ secrets.IOS_CERT_PASSWORD }}
+        if: ${{ github.event.inputs.archive_zip_url == '' }}
+        run: |
+          set -euo pipefail
+
+          KEYCHAIN_PATH="$HOME/certs/app-signing.keychain-db"
+
+          security create-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
+          security set-keychain-settings -lut 21600 "$KEYCHAIN_PATH"
+          security unlock-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
+
+          security list-keychains -d user -s "$KEYCHAIN_PATH"
+          security default-keychain -d user -s "$KEYCHAIN_PATH"
+
+          openssl pkcs12 -in "$HOME/certs/dist.p12" -clcerts -nokeys \
+            -passin pass:"$IOS_CERT_PASSWORD" -out "$HOME/certs/dist_cert.pem"
+
+          openssl pkcs12 -in "$HOME/certs/dist.p12" -nocerts -nodes \
+            -passin pass:"$IOS_CERT_PASSWORD" -out "$HOME/certs/dist_key.pem"
+
+          security import "$HOME/certs/dist_cert.pem" -k "$KEYCHAIN_PATH" -T /usr/bin/codesign -T /usr/bin/security
+          security import "$HOME/certs/dist_key.pem"  -k "$KEYCHAIN_PATH" -T /usr/bin/codesign -T /usr/bin/security
+
+          security set-key-partition-list -S apple-tool:,apple: -s -k "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
+
+          echo "Imported identities:"
+          security find-identity -v -p codesigning "$KEYCHAIN_PATH" || true
+
+          echo "KEYCHAIN_PATH=$KEYCHAIN_PATH" >> "$GITHUB_ENV"
+
+      - name: Install provisioning profile (reliable UUID)
+        shell: bash
+        if: ${{ github.event.inputs.archive_zip_url == '' }}
+        run: |
+          set -euo pipefail
+
+          security cms -D -i "$HOME/certs/profile.mobileprovision" > "$HOME/certs/profile.plist"
+
+          PROFILE_UUID=$(/usr/libexec/PlistBuddy -c 'Print :UUID' "$HOME/certs/profile.plist" 2>/dev/null || true)
+          PROFILE_NAME=$(/usr/libexec/PlistBuddy -c 'Print :Name' "$HOME/certs/profile.plist" 2>/dev/null || true)
+
+          if [ -z "$PROFILE_UUID" ] || [ -z "$PROFILE_NAME" ]; then
+            echo "Could not extract provisioning profile UUID/Name"
+            head -n 60 "$HOME/certs/profile.plist" || true
+            exit 1
+          fi
+
+          mkdir -p "$HOME/Library/MobileDevice/Provisioning Profiles"
+          cp "$HOME/certs/profile.mobileprovision" \
+            "$HOME/Library/MobileDevice/Provisioning Profiles/$PROFILE_UUID.mobileprovision"
+
+          echo "PROFILE_UUID=$PROFILE_UUID" >> "$GITHUB_ENV"
+          echo "PROFILE_NAME=$PROFILE_NAME" >> "$GITHUB_ENV"
+
+      - name: Build iOS (archive)
+        working-directory: ${{ env.WORKING_DIRECTORY }}
+        shell: bash
+        env:
+          DEVELOPMENT_TEAM: ${{ secrets.APPLE_TEAM_ID }}
+          BUNDLE_ID: ${{ secrets.BUNDLE_ID }}
+        if: ${{ github.event.inputs.archive_zip_url == '' }}
+        run: |
+          trap 'echo "::group::xcodebuild log (tail)"; tail -n 200 "$RUNNER_TEMP/xcodebuild-archive.log" || true; echo "::endgroup::"' ERR
+          set -euo pipefail
+
+          mkdir -p build
+
+          IOS_WORKSPACE=$(find ios -maxdepth 2 -name "*.xcworkspace" | head -n 1)
+          echo "Using workspace: $IOS_WORKSPACE"
+
+          LOG="$RUNNER_TEMP/xcodebuild-archive.log"
+
+          xcodebuild \
+            -workspace "$IOS_WORKSPACE" \
+            -scheme "${{ env.IOS_SCHEME }}" \
+            -configuration Release \
+            -sdk iphoneos \
+            -destination 'generic/platform=iOS' \
+            -archivePath "$PWD/${{ env.ARCHIVE_PATH }}" \
+            DEVELOPMENT_TEAM="$DEVELOPMENT_TEAM" \
+            PRODUCT_BUNDLE_IDENTIFIER="$BUNDLE_ID" \
+            CODE_SIGN_STYLE=Manual \
+            CODE_SIGN_IDENTITY="Apple Distribution" \
+            PROVISIONING_PROFILE_SPECIFIER="$PROFILE_NAME" \
+            CODE_SIGN_KEYCHAIN="$KEYCHAIN_PATH" \
+            OTHER_CODE_SIGN_FLAGS="--keychain $KEYCHAIN_PATH" \
+            CURRENT_PROJECT_VERSION="${{ env.BUILD_NUMBER }}" \
+            archive | tee "$LOG" | xcpretty
+          echo "ARCHIVE_UPLOAD_PATH=${{ env.ARCHIVE_PATH }}" >> "$GITHUB_ENV"
+
+      - name: Upload archive artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: CallShield-archive
+          path: ${{ env.ARCHIVE_UPLOAD_PATH }}
+
+      - name: Cleanup (always)
+        if: always()
+        shell: bash
+        run: |
+          set +e
+          security delete-keychain "$KEYCHAIN_PATH" 2>/dev/null || true
+
+  symbolicate:
+    runs-on: macos-latest
+    needs: build-ios-dsym
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Download archive artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: CallShield-archive
+          path: artifacts
+
+      - name: Locate dSYM and app
+        shell: bash
+        run: |
+          set -euo pipefail
+          DSYM=$(find artifacts -name "callshieldnative.app.dSYM" -print | head -1 || true)
+          APP=$(find artifacts -name "callshieldnative.app" -print | head -1 || true)
+          if [ -z "$DSYM" ] || [ -z "$APP" ]; then
+            echo "dSYM or .app not found in artifact. Ensure build-ios-dsym job succeeded."
+            find artifacts -maxdepth 3 -type f -o -type d | head -n 200
+            exit 1
+          fi
+          echo "DSYM=$DSYM" >> "$GITHUB_ENV"
+          echo "APP=$APP" >> "$GITHUB_ENV"
+
+      - name: Save crash log input
+        shell: bash
+        env:
+          CRASH_LOG: ${{ github.event.inputs.crash_log }}
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import os
+
+          log = os.environ.get("CRASH_LOG", "")
+          lines = log.replace("\r\n", "\n").splitlines()
+          while lines and lines[-1].strip() == "EOF":
+            lines.pop()
+          text = "\n".join(lines)
+          if text:
+            text += "\n"
+          with open("crash.txt", "w", encoding="utf-8") as f:
+            f.write(text)
+          print(f"Crash log saved to crash.txt (lines: {len(lines)})")
+          PY
+
+      - name: Symbolicate with atos
+        shell: bash
+        run: |
+          set -euo pipefail
+          BASE=$(python - <<'PY'
+          import re
+          text = open("crash.txt","r",encoding="utf-8",errors="ignore").read()
+          m = re.search(r'0x([0-9a-fA-F]+)\\s+-\\s+0x[0-9a-fA-F]+\\s+callshieldnative', text)
+          print("0x"+m.group(1) if m else "0x100cb0000")
+          PY
+          )
+          echo "Using base address: $BASE"
+
+          tmp_addrs=$(mktemp)
+          grep -Eo "0x[0-9a-fA-F]{6,}" crash.txt | sort -u | head -n 200 > "$tmp_addrs"
+          if [ ! -s "$tmp_addrs" ]; then
+            echo "No addresses found in crash log"
+            exit 1
+          fi
+
+          BIN="$DSYM/Contents/Resources/DWARF/callshieldnative"
+          echo "Binary: $BIN"
+          echo "---- atos output ----"
+          while IFS= read -r a; do
+            [ -z "$a" ] && continue
+            echo -n "$a -> "
+            xcrun atos -o "$BIN" -l "$BASE" "$a" || true
+          done < "$tmp_addrs"
+
+      - name: Full symbolicated crash (if tool available)
+        shell: bash
+        run: |
+          set -euo pipefail
+          DEV_DIR="$(xcode-select -p)"
+          TOOL="$DEV_DIR/../SharedFrameworks/DVTFoundation.framework/Versions/A/Resources/symbolicatecrash"
+          if [ ! -x "$TOOL" ]; then
+            echo "symbolicatecrash not available under $TOOL; skipping full symbolication."
+            exit 0
+          fi
+          export DEVELOPER_DIR="$DEV_DIR"
+          if ! "$TOOL" crash.txt "$DSYM" > crash.symbolicated.txt; then
+            echo "symbolicatecrash failed (likely malformed crash log); keeping atos output only."
+            exit 0
+          fi
+          echo "---- symbolicated head ----"
+          head -n 120 crash.symbolicated.txt || true

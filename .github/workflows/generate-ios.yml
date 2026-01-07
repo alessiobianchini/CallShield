@@ -1,0 +1,167 @@
+name: Generate iOS project
+
+on:
+  workflow_dispatch:
+
+env:
+  NODE_VERSION: "20"
+  APP_NAME: CallShield
+  RN_VERSION: "0.80.1"
+  DEFAULT_BUNDLE_ID: "com.callshield.generated"
+
+jobs:
+  generate-ios:
+    runs-on: macos-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # ✅ pnpm deve esistere PRIMA di setup-node se usi cache: pnpm
+      - name: Install pnpm
+        run: npm install -g pnpm@9
+
+      - name: Setup Node (with pnpm cache)
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+
+      - name: Install JS dependencies
+        run: pnpm install --no-frozen-lockfile
+
+      - name: Generate iOS folder
+        run: |
+          set -euo pipefail
+
+          if [ -d "ios" ]; then
+            echo "ios folder already present, skipping init"
+            exit 0
+          fi
+
+          PKG="${{ secrets.BUNDLE_ID }}"
+          if [ -z "${PKG}" ]; then PKG="${DEFAULT_BUNDLE_ID}"; fi
+
+          rm -rf tmp-rn
+          mkdir -p tmp-rn
+          pushd tmp-rn
+
+          SKIP_POD_INSTALL=1 npx --yes @react-native-community/cli@latest init callshieldnative \
+            --skip-install \
+            --version "${RN_VERSION}" \
+            --package-name "$PKG" \
+            --title "${APP_NAME}"
+
+          popd
+
+          test -d "tmp-rn/callshieldnative/ios"
+          mv tmp-rn/callshieldnative/ios ./ios
+          rm -rf tmp-rn
+
+      - name: Generate AppIcon from SVG
+        run: |
+          set -euo pipefail
+          SRC="assets/images/icon-1024.svg"
+          if [ ! -f "$SRC" ]; then
+            echo "Source SVG not found: $SRC"
+            exit 1
+          fi
+
+          APPICON="ios/callshieldnative/Images.xcassets/AppIcon.appiconset"
+          mkdir -p "$APPICON"
+
+          # Convert SVG to base 1024 PNG
+          BASEPNG="$APPICON/icon-1024.png"
+          sips -s format png "$SRC" --out "$BASEPNG"
+
+          cat > "$APPICON/Contents.json" <<'EOF'
+          {
+            "images": [
+              {"idiom":"iphone","size":"20x20","scale":"2x","filename":"icon-20x20@2x.png"},
+              {"idiom":"iphone","size":"20x20","scale":"3x","filename":"icon-20x20@3x.png"},
+              {"idiom":"iphone","size":"29x29","scale":"2x","filename":"icon-29x29@2x.png"},
+              {"idiom":"iphone","size":"29x29","scale":"3x","filename":"icon-29x29@3x.png"},
+              {"idiom":"iphone","size":"40x40","scale":"2x","filename":"icon-40x40@2x.png"},
+              {"idiom":"iphone","size":"40x40","scale":"3x","filename":"icon-40x40@3x.png"},
+              {"idiom":"iphone","size":"60x60","scale":"2x","filename":"icon-60x60@2x.png"},
+              {"idiom":"iphone","size":"60x60","scale":"3x","filename":"icon-60x60@3x.png"},
+              {"idiom":"ipad","size":"20x20","scale":"1x","filename":"icon-20x20@1x.png"},
+              {"idiom":"ipad","size":"20x20","scale":"2x","filename":"icon-20x20@2x.png"},
+              {"idiom":"ipad","size":"29x29","scale":"1x","filename":"icon-29x29@1x.png"},
+              {"idiom":"ipad","size":"29x29","scale":"2x","filename":"icon-29x29@2x.png"},
+              {"idiom":"ipad","size":"40x40","scale":"1x","filename":"icon-40x40@1x.png"},
+              {"idiom":"ipad","size":"40x40","scale":"2x","filename":"icon-40x40@2x.png"},
+              {"idiom":"ipad","size":"76x76","scale":"1x","filename":"icon-76x76@1x.png"},
+              {"idiom":"ipad","size":"76x76","scale":"2x","filename":"icon-76x76@2x.png"},
+              {"idiom":"ipad","size":"83.5x83.5","scale":"2x","filename":"icon-83.5x83.5@2x.png"},
+              {"idiom":"ios-marketing","size":"1024x1024","scale":"1x","filename":"icon-1024x1024@1x.png"}
+            ],
+            "info": {"version":1,"author":"xcode"}
+          }
+          EOF
+
+          gen() { sips -z "$3" "$3" "$BASEPNG" --out "$APPICON/$1"; }
+          gen icon-20x20@1x.png 20 20
+          gen icon-20x20@2x.png 40 40
+          gen icon-20x20@3x.png 60 60
+          gen icon-29x29@1x.png 29 29
+          gen icon-29x29@2x.png 58 58
+          gen icon-29x29@3x.png 87 87
+          gen icon-40x40@1x.png 40 40
+          gen icon-40x40@2x.png 80 80
+          gen icon-40x40@3x.png 120 120
+          gen icon-60x60@2x.png 120 120
+          gen icon-60x60@3x.png 180 180
+          gen icon-76x76@1x.png 76 76
+          gen icon-76x76@2x.png 152 152
+          gen icon-83.5x83.5@2x.png 167 167
+          cp "$BASEPNG" "$APPICON/icon-1024x1024@1x.png"
+
+      - name: Patch Podfile (NitroModules from node_modules)
+        run: |
+          set -euo pipefail
+
+          PODFILE="ios/Podfile"
+          test -f "$PODFILE"
+
+          # 1) Rimuovi eventuali source sbagliate aggiunte prima (invertase/nitro-ios ecc.)
+          #    (lasciamo solo CDN trunk, che è standard)
+          perl -0777 -i -pe "s/^source\\s+'https:\\/\\/github\\.com\\/[^']+'\\s*\\n//mg" "$PODFILE"
+
+          # 2) Assicurati che ci sia la CDN di CocoaPods in cima
+          if ! grep -q "source 'https://cdn.cocoapods.org/'" "$PODFILE"; then
+            tmp="$(mktemp)"
+            printf "source 'https://cdn.cocoapods.org/'\n\n" > "$tmp"
+            cat "$PODFILE" >> "$tmp"
+            mv "$tmp" "$PODFILE"
+          fi
+
+          # 3) Dentro al target, aggiungi NitroModules dal path di node_modules (solo se non c'è già)
+          if ! grep -q "pod 'NitroModules'" "$PODFILE"; then
+            perl -i -pe "s/(target\\s+'callshieldnative'\\s+do\\s*\\n)/\$1  pod 'NitroModules', :path => '..\\/node_modules\\/react-native-nitro-modules'\\n/" "$PODFILE"
+          fi
+
+          echo "Podfile (first 40 lines):"
+          sed -n '1,40p' "$PODFILE"
+
+      - name: Install CocoaPods
+        working-directory: ios
+        run: |
+          set -euo pipefail
+          ruby --version
+          pod --version
+
+          rm -rf Pods Podfile.lock
+          pod install --repo-update
+
+      - name: Archive iOS folder
+        run: |
+          set -euo pipefail
+          tar czf ios.tar.gz ios
+          ls -lah ios.tar.gz
+
+      - name: Upload iOS artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ios-folder
+          path: ios.tar.gz
