@@ -361,13 +361,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          BASE=$(python - <<'PY'
-            import re
-            text = open("crash.txt","r",encoding="utf-8",errors="ignore").read()
-            m = re.search(r'0x([0-9a-fA-F]+)\s+-\s+0x[0-9a-fA-F]+\s+callshieldnative', text)
-            print("0x"+m.group(1) if m else "0x100cb0000")
-          PY
-          )
+          BASE=$(perl -0777 -ne 'if(/0x([0-9A-Fa-f]+)\s+-\s+0x[0-9A-Fa-f]+\s+callshieldnative/){print "0x$1\n"}else{print "0x100cb0000\n"}' crash.txt)
           echo "Using base address: $BASE"
 
           tmp_addrs=$(mktemp)
