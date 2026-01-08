@@ -21,6 +21,14 @@ jobs:
       - name: Install pnpm
         run: npm install -g pnpm@9
 
+      - name: Precreate pnpm store dir (for setup-node cache)
+        run: |
+          set -euo pipefail
+          STORE="${{ env.PNPM_STORE_PATH }}"
+          mkdir -p "$STORE"
+          pnpm config set store-dir "$STORE"
+          echo "pnpm store configured at: $STORE"
+
       - name: Setup Node (with pnpm cache)
         uses: actions/setup-node@v4
         with:

@@ -33,7 +33,8 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p "${{ env.PNPM_STORE_PATH }}"
-          echo "pnpm store precreated at: ${{ env.PNPM_STORE_PATH }}"
+          pnpm config set store-dir "${{ env.PNPM_STORE_PATH }}"
+          echo "pnpm store configured and precreated at: ${{ env.PNPM_STORE_PATH }}"
 
       - name: Setup Node (with pnpm cache)
         uses: actions/setup-node@v4

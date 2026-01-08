@@ -14,6 +14,9 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
     _ application: UIApplication,
     didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]? = nil
   ) -> Bool {
+    // Log fatal JS errors to console/UserDefaults so we can read them even if the app aborts on startup.
+    installFatalHandlers()
+
     let delegate = ReactNativeDelegate()
     let factory = RCTReactNativeFactory(delegate: delegate)
     delegate.dependencyProvider = RCTAppDependencyProvider()
@@ -30,6 +33,42 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
     )
 
     return true
+  }
+
+  private func installFatalHandlers() {
+    // Capture RCTFatalHandler (NSError) for JS fatal errors.
+    RCTSetFatalHandler { error in
+      let message = error?.localizedDescription ?? "Unknown fatal error"
+      let code = error?.code ?? 0
+      let domain = error?.domain ?? "unknown"
+      let info = error?.userInfo ?? [:]
+      let payload: [String: Any] = [
+        "type": "fatal_error",
+        "message": message,
+        "domain": domain,
+        "code": code,
+        "info": info,
+        "ts": Date().timeIntervalSince1970,
+      ]
+      UserDefaults.standard.set(payload, forKey: "last_fatal_native")
+      NSLog("[RNFatal] domain=\(domain) code=\(code) message=\(message) info=\(info)")
+    }
+
+    // Capture fatal exceptions (NSException) with stack.
+    RCTSetFatalExceptionHandler { exception in
+      let name = exception?.name.rawValue ?? "Exception"
+      let reason = exception?.reason ?? "Unknown reason"
+      let stack = exception?.callStackSymbols.joined(separator: "\n") ?? ""
+      let payload: [String: Any] = [
+        "type": "fatal_exception",
+        "name": name,
+        "reason": reason,
+        "stack": stack,
+        "ts": Date().timeIntervalSince1970,
+      ]
+      UserDefaults.standard.set(payload, forKey: "last_fatal_exception_native")
+      NSLog("[RNFatalException] name=\(name) reason=\(reason)\n\(stack)")
+    }
   }
 }
 
