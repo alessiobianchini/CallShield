@@ -1,6 +1,8 @@
 // Values are injected at build time via env (secrets in CI).
-const BASE_URL = (process.env.EXPO_PUBLIC_API_BASE_URL ?? process.env.BASE_URL ?? '').trim();
-const FUNCTION_KEY = (process.env.EXPO_PUBLIC_FUNCTION_KEY ?? process.env.FUNCTION_KEY ?? '').trim();
+// Guard process.env because in Hermes release builds it may be undefined and
+// accessing a property would throw before the app renders.
+const BASE_URL = (process?.env?.EXPO_PUBLIC_API_BASE_URL ?? process?.env?.BASE_URL ?? '').trim();
+const FUNCTION_KEY = (process?.env?.EXPO_PUBLIC_FUNCTION_KEY ?? process?.env?.FUNCTION_KEY ?? '').trim();
 
 type ListResponse = {
   version: number;
