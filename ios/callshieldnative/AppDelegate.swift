@@ -38,10 +38,11 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
   private func installFatalHandlers() {
     // Capture RCTFatalHandler (NSError) for JS fatal errors.
     RCTSetFatalHandler { error in
-      let message = error?.localizedDescription ?? "Unknown fatal error"
-      let code = error?.code ?? 0
-      let domain = error?.domain ?? "unknown"
-      let info = error?.userInfo ?? [:]
+      let nsError = error as NSError?
+      let message = nsError?.localizedDescription ?? "Unknown fatal error"
+      let code = nsError?.code ?? 0
+      let domain = nsError?.domain ?? "unknown"
+      let info = nsError?.userInfo ?? [:]
       let payload: [String: Any] = [
         "type": "fatal_error",
         "message": message,
