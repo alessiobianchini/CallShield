@@ -1,5 +1,6 @@
 import React from 'react';
-import { View, Text, StyleSheet } from 'react-native';
+import { View, Text, StyleSheet, ScrollView } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 type Props = { children: React.ReactNode };
 type State = { error: Error | null };
@@ -16,7 +17,14 @@ export class ErrorBoundary extends React.Component<Props, State> {
   }
 
   componentDidCatch(error: Error, info: React.ErrorInfo) {
-    console.error('[ErrorBoundary]', error, info.componentStack);
+    const payload = {
+      message: error?.message,
+      stack: info?.componentStack || error?.stack,
+      ts: Date.now(),
+    };
+    console.error('[ErrorBoundary]', payload);
+    // Persist so we can inspect on next launch if needed.
+    AsyncStorage.setItem('@callshield_last_render_error', JSON.stringify(payload)).catch(() => undefined);
   }
 
   render() {
@@ -25,6 +33,11 @@ export class ErrorBoundary extends React.Component<Props, State> {
         <View style={styles.container}>
           <Text style={styles.title}>Something went wrong</Text>
           <Text style={styles.message}>{this.state.error.message}</Text>
+          <ScrollView style={styles.stackBox}>
+            <Text style={styles.stack} selectable>
+              {this.state.error.stack}
+            </Text>
+          </ScrollView>
         </View>
       );
     }
@@ -35,20 +48,31 @@ export class ErrorBoundary extends React.Component<Props, State> {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    padding: 24,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: '#0b1323',
+    padding: 20,
+    justifyContent: 'flex-start',
+    backgroundColor: '#f8fafc',
   },
   title: {
     fontSize: 18,
     fontWeight: '700',
-    color: '#fff',
-    marginBottom: 8,
+    color: '#0f172a',
+    marginBottom: 6,
   },
   message: {
     fontSize: 14,
-    color: '#cbd5e1',
-    textAlign: 'center',
+    color: '#0f172a',
+    marginBottom: 10,
+  },
+  stackBox: {
+    flex: 1,
+    borderWidth: 1,
+    borderColor: '#cbd5e1',
+    borderRadius: 10,
+    padding: 10,
+    backgroundColor: '#fff',
+  },
+  stack: {
+    fontSize: 12,
+    color: '#0f172a',
   },
 });
