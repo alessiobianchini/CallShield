@@ -36,6 +36,9 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
   }
 
   private func installFatalHandlers() {
+    let defaultFatalHandler = RCTGetFatalHandler()
+    let defaultExceptionHandler = RCTGetFatalExceptionHandler()
+
     // Capture RCTFatalHandler (NSError) for JS fatal errors.
     RCTSetFatalHandler { error in
       let nsError = error as NSError?
@@ -53,6 +56,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
       ]
       UserDefaults.standard.set(payload, forKey: "last_fatal_native")
       NSLog("[RNFatal] domain=\(domain) code=\(code) message=\(message) info=\(info)")
+      defaultFatalHandler?(error)
     }
 
     // Capture fatal exceptions (NSException) with stack.
@@ -69,6 +73,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
       ]
       UserDefaults.standard.set(payload, forKey: "last_fatal_exception_native")
       NSLog("[RNFatalException] name=\(name) reason=\(reason)\n\(stack)")
+      defaultExceptionHandler?(exception)
     }
   }
 }
