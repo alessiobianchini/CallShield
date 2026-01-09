@@ -17,6 +17,13 @@ import {
   FlatList,
   ActivityIndicator,
 } from 'react-native';
+import { GlassCard, GlassPanel } from './src/components/Glass';
+import { PaywallCard } from './src/components/PaywallCard';
+import { ProtectionCard } from './src/components/ProtectionCard';
+import { ReportsCard, RecentCall, RiskLevel } from './src/components/ReportsCard';
+import { ChecklistCard } from './src/components/ChecklistCard';
+import { GdprCard } from './src/components/GdprCard';
+import { TabBar, TabKey } from './src/components/TabBar';
 import { BlurView } from '@react-native-community/blur';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { fetchList, reportCall } from './src/api';
@@ -29,16 +36,6 @@ import {
   purchasePlus,
   restorePurchases,
 } from './src/subscriptions';
-
-type RiskLevel = 'low' | 'medium' | 'high';
-
-type RecentCall = {
-  id: string;
-  number: string;
-  label: string;
-  risk: RiskLevel;
-  timeAgo: string;
-};
 
 type ProtectionState = {
   blockingEnabled: boolean;
@@ -55,8 +52,6 @@ type PersistedState = {
   calls: RecentCall[];
   protection: ProtectionState;
 };
-
-type Tab = 'home' | 'reports' | 'plus' | 'checklist';
 
 const mockCalls: RecentCall[] = [
   { id: '1', number: '+39 02 1234 5678', label: 'Telemarketing', risk: 'high', timeAgo: '3m' },
@@ -88,7 +83,7 @@ function App() {
   const [reportCategory, setReportCategory] = useState<'telemarketing' | 'spam' | 'fraud' | 'other'>('spam');
   const [lastFatal, setLastFatal] = useState<{ message?: string; stack?: string; ts?: number } | null>(null);
   const [booting, setBooting] = useState(true);
-  const [tab, setTab] = useState<Tab>('home');
+  const [tab, setTab] = useState<TabKey>('home');
   const blockingEnabled = plusActive && protection.blockingEnabled;
 
   const GlassCard: React.FC<{ children: React.ReactNode }> = ({ children }) => (
@@ -402,109 +397,75 @@ function App() {
         {error ? <Text style={[styles.error, { color: palette.danger }]}>{error}</Text> : null}
 
         {(tab === 'home' || tab === 'plus') && (
-          <GlassCard>
-            <View style={styles.rowBetween}>
-              <Text style={[styles.sectionTitle, { color: palette.text }]}>{t(lang, 'paywallTitle')}</Text>
-              <View
-                style={[
-                  styles.pill,
-                  { backgroundColor: plusActive ? palette.success : palette.card, borderWidth: 1, borderColor: palette.accent },
-                ]}
-              >
-                <Text style={[styles.pillText, { color: plusActive ? '#fff' : palette.accent }]}>
-                  {plusActive ? t(lang, 'entitlementActive') : t(lang, 'entitlementInactive')}
-                </Text>
-              </View>
-            </View>
-            <Text style={[styles.meta, { color: palette.sub }]}>{t(lang, 'paywallSubtitle')}</Text>
-            <TouchableOpacity
-              style={[styles.primaryButton, { backgroundColor: palette.accent }]}
-              onPress={() => setPaywallVisible(true)}
-            >
-              <Text style={[styles.primaryText, { color: '#fff' }]}>
-                {t(lang, 'ctaStart')} {paywallPrice ? `- ${paywallPrice}` : ''}
-              </Text>
-            </TouchableOpacity>
-            {iapMessage ? <Text style={[styles.meta, { color: palette.sub, marginTop: 8 }]}>{iapMessage}</Text> : null}
+          <GlassCard backgroundColor={palette.card} borderColor={palette.cardBorder} blurType={isDarkMode ? 'dark' : 'light'}>
+            <PaywallCard
+              title={t(lang, 'paywallTitle')}
+              subtitle={t(lang, 'paywallSubtitle')}
+              price={paywallPrice}
+              active={plusActive}
+              accent={palette.accent}
+              cardBg={palette.card}
+              message={iapMessage}
+              onOpen={() => setPaywallVisible(true)}
+            />
           </GlassCard>
         )}
 
         {(tab === 'home' || tab === 'plus') && (
-          <GlassCard>
-            <Text style={[styles.sectionTitle, { color: palette.text }]}>{t(lang, 'protection')}</Text>
-            <View style={styles.rowBetween}>
-              <Text style={[styles.label, { color: palette.text }]}>{t(lang, 'blockToggle')}</Text>
-              <Switch
-                value={blockingEnabled}
-                onValueChange={next => {
-                  if (!plusActive) {
-                    setPaywallVisible(true);
-                    return;
-                  }
-                  toggleBlocking(next);
-                }}
-                thumbColor={palette.card}
-                trackColor={{ true: palette.accent, false: '#b8c2d1' }}
-              />
-            </View>
-            {!plusActive ? <Text style={[styles.meta, { color: palette.sub }]}>{t(lang, 'entitlementUpgrade')}</Text> : null}
-            <View style={styles.rowBetween}>
-              <Text style={[styles.label, { color: palette.text }]}>{t(lang, 'identifyToggle')}</Text>
-              <Switch
-                value={protection.identificationEnabled}
-                onValueChange={toggleIdentification}
-                thumbColor={palette.card}
-                trackColor={{ true: palette.accent, false: '#b8c2d1' }}
-              />
-            </View>
-            <View style={styles.metaRow}>
-              <Text style={[styles.meta, { color: palette.sub }]}>{`${t(lang, 'lastUpdate')} - ${protection.lastUpdate}`}</Text>
-              <TouchableOpacity
-                style={[styles.pill, { backgroundColor: palette.accent }]}
-                onPress={handleReload}
-                disabled={loading}
-              >
-                <Text style={[styles.pillText, { color: '#fff' }]}>{loading ? t(lang, 'updateLoading') : t(lang, 'update')}</Text>
-              </TouchableOpacity>
-            </View>
+          <GlassCard backgroundColor={palette.card} borderColor={palette.cardBorder} blurType={isDarkMode ? 'dark' : 'light'}>
+            <ProtectionCard
+              title={t(lang, 'protection')}
+              blockLabel={t(lang, 'blockToggle')}
+              identifyLabel={t(lang, 'identifyToggle')}
+              lastUpdate={`${t(lang, 'lastUpdate')} - ${protection.lastUpdate}`}
+              accent={palette.accent}
+              subColor={palette.sub}
+              textColor={palette.text}
+              cardBg={palette.card}
+              blockingEnabled={blockingEnabled}
+              identificationEnabled={protection.identificationEnabled}
+              plusActive={plusActive}
+              upgradeHint={t(lang, 'entitlementUpgrade')}
+              onToggleBlock={next => {
+                if (!plusActive) {
+                  setPaywallVisible(true);
+                  return;
+                }
+                toggleBlocking(next);
+              }}
+              onToggleIdentify={toggleIdentification}
+              onUpdate={handleReload}
+              loading={loading}
+            />
           </GlassCard>
         )}
 
         {(tab === 'home' || tab === 'reports') && (
-          <GlassCard>
-            <View style={styles.rowBetween}>
-              <Text style={[styles.sectionTitle, { color: palette.text }]}>{t(lang, 'reportsTitle')}</Text>
-              <Text style={[styles.badge, { color: palette.accent }]}>{`${t(lang, 'reportsWeek')} ${protection.reportsThisWeek}`}</Text>
-            </View>
-            <Text style={[styles.meta, { color: palette.sub }]}>{t(lang, 'reportHint')}</Text>
-            {calls.length === 0 ? (
-              <Text style={[styles.meta, { color: palette.sub, marginTop: 12 }]}>{t(lang, 'noCalls')}</Text>
-            ) : (
-              calls.map(call => (
-                <View key={call.id} style={[styles.callRow, { borderColor: palette.bg }]}>
-                  <View style={{ flex: 1 }}>
-                    <Text style={[styles.callNumber, { color: palette.text }]}>{call.number}</Text>
-                    <Text style={[styles.callLabel, { color: palette.sub }]}>{`${call.label} - ${call.timeAgo}`}</Text>
-                  </View>
-                  <View style={[styles.riskDot, { backgroundColor: riskToColor(call.risk) }]} />
-                  <TouchableOpacity style={[styles.reportButton, { borderColor: palette.accent }]} onPress={() => handleReport(call)}>
-                    <Text style={[styles.reportText, { color: palette.accent }]}>{t(lang, 'reportButton')}</Text>
-                  </TouchableOpacity>
-                </View>
-              ))
-            )}
+          <GlassCard backgroundColor={palette.card} borderColor={palette.cardBorder} blurType={isDarkMode ? 'dark' : 'light'}>
+            <ReportsCard
+              title={t(lang, 'reportsTitle')}
+              subtitle={t(lang, 'reportHint')}
+              badge={`${t(lang, 'reportsWeek')} ${protection.reportsThisWeek}`}
+              calls={calls}
+              onReport={handleReport}
+              riskToColor={riskToColor}
+              palette={{ text: palette.text, sub: palette.sub, bg: palette.bg, accent: palette.accent }}
+              emptyText={t(lang, 'noCalls')}
+            />
           </GlassCard>
         )}
 
         {(tab === 'home' || tab === 'checklist') && (
-          <GlassCard>
-            <Text style={[styles.sectionTitle, { color: palette.text }]}>{t(lang, 'checklistTitle')}</Text>
-            <Text style={[styles.meta, { color: palette.sub }]}>{t(lang, 'checklistBody')}</Text>
-            <Text style={[styles.meta, { color: palette.sub, marginTop: 8 }]}>{t(lang, 'checklistPath')}</Text>
-            <Text style={[styles.meta, { color: palette.sub, marginTop: 8 }]}>{t(lang, 'smsInfo')}</Text>
-            <TouchableOpacity
-              style={[styles.outlineButton, { borderColor: palette.accent, marginTop: 10 }]}
-              onPress={async () => {
+          <GlassCard backgroundColor={palette.card} borderColor={palette.cardBorder} blurType={isDarkMode ? 'dark' : 'light'}>
+            <ChecklistCard
+              title={t(lang, 'checklistTitle')}
+              body={t(lang, 'checklistBody')}
+              path={t(lang, 'checklistPath')}
+              smsInfo={t(lang, 'smsInfo')}
+              accent={palette.accent}
+              textColor={palette.text}
+              subColor={palette.sub}
+              onOpenSettings={async () => {
                 const targets = ['App-Prefs:root=PHONE', 'app-settings:'];
                 for (const url of targets) {
                   try {
@@ -514,31 +475,29 @@ function App() {
                       return;
                     }
                   } catch {
-                    // ignore and try next
+                    // ignore
                   }
                 }
               }}
-            >
-              <Text style={[styles.reportText, { color: palette.accent }]}>{t(lang, 'checklistOpenSettings')}</Text>
-            </TouchableOpacity>
+            />
           </GlassCard>
         )}
 
         {(tab === 'home' || tab === 'checklist') && (
-          <GlassCard>
-            <Text style={[styles.sectionTitle, { color: palette.text }]}>{t(lang, 'gdprTitle')}</Text>
-            <Text style={[styles.meta, { color: palette.sub, marginBottom: 8 }]}>{t(lang, 'gdprSummary')}</Text>
-            <TouchableOpacity
-              style={[styles.outlineButton, { borderColor: palette.accent }]}
-              onPress={() => setGdprVisible(true)}
-            >
-              <Text style={[styles.reportText, { color: palette.accent }]}>{t(lang, 'gdprOpen')}</Text>
-            </TouchableOpacity>
+          <GlassCard backgroundColor={palette.card} borderColor={palette.cardBorder} blurType={isDarkMode ? 'dark' : 'light'}>
+            <GdprCard
+              title={t(lang, 'gdprTitle')}
+              summary={t(lang, 'gdprSummary')}
+              accent={palette.accent}
+              textColor={palette.text}
+              subColor={palette.sub}
+              onOpen={() => setGdprVisible(true)}
+            />
           </GlassCard>
         )}
 
         {(tab === 'home' || tab === 'reports') && (
-          <GlassCard>
+          <GlassCard backgroundColor={palette.card} borderColor={palette.cardBorder} blurType={isDarkMode ? 'dark' : 'light'}>
             <Text style={[styles.sectionTitle, { color: palette.text }]}>{t(lang, 'reportNumber')}</Text>
             <TouchableOpacity
               style={[styles.primaryButton, { backgroundColor: palette.accent }]}
@@ -550,25 +509,14 @@ function App() {
         )}
       </ScrollView>
 
-      <View style={[styles.tabBar, { backgroundColor: palette.card, borderColor: palette.cardBorder }]}>
-        {[
-          { key: 'home', label: 'Home' },
-          { key: 'reports', label: 'Reports' },
-          { key: 'plus', label: 'Plus' },
-          { key: 'checklist', label: 'Checklist' },
-        ].map(item => {
-          const active = tab === item.key;
-          return (
-            <TouchableOpacity
-              key={item.key}
-              style={[styles.tabItem, active && { backgroundColor: palette.accent }]}
-              onPress={() => setTab(item.key as Tab)}
-            >
-              <Text style={[styles.tabText, { color: active ? '#fff' : palette.text }]}>{item.label}</Text>
-            </TouchableOpacity>
-          );
-        })}
-      </View>
+      <TabBar
+        active={tab}
+        onSelect={setTab}
+        backgroundColor={palette.card}
+        borderColor={palette.cardBorder}
+        textColor={palette.text}
+        accent={palette.accent}
+      />
 
       <Modal visible={paywallVisible} animationType="slide" transparent onRequestClose={() => setPaywallVisible(false)}>
         <View style={styles.modalBackdrop}>
