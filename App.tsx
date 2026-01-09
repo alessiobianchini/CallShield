@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState, useCallback } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
   Modal,
   SafeAreaView,
@@ -10,10 +10,7 @@ import {
   useColorScheme,
   Linking,
   View,
-  Switch,
   TextInput,
-  TouchableWithoutFeedback,
-  Keyboard,
   FlatList,
   ActivityIndicator,
 } from 'react-native';
@@ -24,7 +21,6 @@ import { ReportsCard, RecentCall, RiskLevel } from './src/components/ReportsCard
 import { ChecklistCard } from './src/components/ChecklistCard';
 import { GdprCard } from './src/components/GdprCard';
 import { TabBar, TabKey } from './src/components/TabBar';
-import { BlurView } from '@react-native-community/blur';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { fetchList, reportCall } from './src/api';
 import { Lang, t } from './src/i18n';
@@ -53,12 +49,6 @@ type PersistedState = {
   protection: ProtectionState;
 };
 
-const mockCalls: RecentCall[] = [
-  { id: '1', number: '+39 02 1234 5678', label: 'Telemarketing', risk: 'high', timeAgo: '3m' },
-  { id: '2', number: '+39 06 4432 1189', label: 'Possibile spam', risk: 'medium', timeAgo: '25m' },
-  { id: '3', number: '+39 320 987 6543', label: 'Sospetto robo-call', risk: 'high', timeAgo: '1d' },
-];
-
 function App() {
   const isDarkMode = useColorScheme() === 'dark';
   const [protection, setProtection] = useState<ProtectionState>({
@@ -85,42 +75,6 @@ function App() {
   const [booting, setBooting] = useState(true);
   const [tab, setTab] = useState<TabKey>('home');
   const blockingEnabled = plusActive && protection.blockingEnabled;
-
-  const GlassCard: React.FC<{ children: React.ReactNode }> = ({ children }) => (
-    <View style={styles.card}>
-      <BlurView
-        style={StyleSheet.absoluteFill}
-        blurType={isDarkMode ? 'dark' : 'light'}
-        blurAmount={12}
-        blurRadius={10}
-      />
-      <View
-        style={[
-          StyleSheet.absoluteFill,
-          { backgroundColor: palette.card, borderRadius: 18, borderColor: palette.cardBorder, borderWidth: 1 },
-        ]}
-      />
-      <View style={styles.cardInner}>{children}</View>
-    </View>
-  );
-
-  const GlassPanel: React.FC<{ children: React.ReactNode }> = ({ children }) => (
-    <View style={styles.modalCard}>
-      <BlurView
-        style={StyleSheet.absoluteFill}
-        blurType={isDarkMode ? 'dark' : 'light'}
-        blurAmount={12}
-        blurRadius={10}
-      />
-      <View
-        style={[
-          StyleSheet.absoluteFill,
-          { backgroundColor: palette.card, borderRadius: 16, borderColor: palette.cardBorder, borderWidth: 1 },
-        ]}
-      />
-      <View style={styles.modalInner}>{children}</View>
-    </View>
-  );
 
   const palette = useMemo(
     () =>
