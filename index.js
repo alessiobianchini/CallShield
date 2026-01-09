@@ -14,13 +14,15 @@ const LAST_FATAL_KEY = '@callshield_last_fatal';
 const defaultHandler = ErrorUtils.getGlobalHandler && ErrorUtils.getGlobalHandler();
 ErrorUtils.setGlobalHandler((err, isFatal) => {
   try {
-    const payload = {
-      message: err?.message,
-      stack: err?.stack,
-      isFatal: !!isFatal,
-      ts: Date.now(),
-    };
-    AsyncStorage.setItem(LAST_FATAL_KEY, JSON.stringify(payload)).catch(() => undefined);
+    if (isFatal) {
+      const payload = {
+        message: err?.message,
+        stack: err?.stack,
+        isFatal: true,
+        ts: Date.now(),
+      };
+      AsyncStorage.setItem(LAST_FATAL_KEY, JSON.stringify(payload)).catch(() => undefined);
+    }
   } catch {
     // ignore storage errors
   }

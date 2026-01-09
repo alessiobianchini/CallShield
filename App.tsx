@@ -179,8 +179,11 @@ function App() {
         const raw = await AsyncStorage.getItem(LAST_FATAL_KEY);
         if (raw) {
           const parsed = JSON.parse(raw);
-          setLastFatal(parsed);
-          console.log('[LAST_FATAL]', parsed);
+          const fresh = parsed?.ts ? Date.now() - parsed.ts < 10 * 60 * 1000 : true;
+          if (fresh) {
+            setLastFatal(parsed);
+            console.log('[LAST_FATAL]', parsed);
+          }
           await AsyncStorage.removeItem(LAST_FATAL_KEY);
         }
       } catch {
