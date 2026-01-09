@@ -77,6 +77,18 @@ jobs:
           set -euo pipefail
           pnpm install --no-frozen-lockfile
 
+      - name: Install XcodeGen
+        shell: bash
+        run: |
+          set -euo pipefail
+          brew install xcodegen
+
+      - name: Generate Xcode project (app + Call Directory extension)
+        shell: bash
+        run: |
+          set -euo pipefail
+          xcodegen generate --spec project.yml
+
       - name: Cache CocoaPods
         uses: actions/cache@v4
         with:

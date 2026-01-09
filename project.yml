@@ -1,0 +1,47 @@
+name: CallShield
+options:
+  deploymentTarget:
+    iOS: "15.1"
+  bundleIdPrefix: com.alessiobianchini
+  settingPresets: all
+
+settings:
+  base:
+    DEVELOPMENT_TEAM: SK68SF94T9
+    SWIFT_VERSION: 5.9
+    IPHONEOS_DEPLOYMENT_TARGET: 15.1
+
+targets:
+  callshieldnative:
+    type: application
+    platform: iOS
+    sources:
+      - path: ios/callshieldnative
+    settings:
+      INFOPLIST_FILE: ios/callshieldnative/Info.plist
+      PRODUCT_BUNDLE_IDENTIFIER: com.alessiobianchini.callshield
+      CODE_SIGN_ENTITLEMENTS: ios/callshieldnative/callshieldnative.entitlements
+    entitlements:
+      path: ios/callshieldnative/callshieldnative.entitlements
+    dependencies:
+      - sdk: CallKit.framework
+
+  CallShieldDirectory:
+    type: app-extension
+    platform: iOS
+    sources:
+      - path: ios/CallShieldDirectory
+    settings:
+      INFOPLIST_FILE: ios/CallShieldDirectory/Info.plist
+      PRODUCT_BUNDLE_IDENTIFIER: com.alessiobianchini.callshield.CallShieldDirectory
+      CODE_SIGN_ENTITLEMENTS: ios/CallShieldDirectory/CallShieldDirectory.entitlements
+      EXTENSION_TARGET_IDENTIFIER: CallShieldDirectory
+    entitlements:
+      path: ios/CallShieldDirectory/CallShieldDirectory.entitlements
+    info:
+      NSExtension:
+        NSExtensionPointIdentifier: com.apple.callkit.call-directory
+        NSExtensionPrincipalClass: $(PRODUCT_MODULE_NAME).CallDirectoryHandler
+    dependencies:
+      - target: callshieldnative
+      - sdk: CallKit.framework

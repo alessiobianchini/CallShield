@@ -494,7 +494,21 @@ function App() {
           <Text style={[styles.meta, { color: palette.sub, marginTop: 8 }]}>{t(lang, 'smsInfo')}</Text>
           <TouchableOpacity
             style={[styles.outlineButton, { borderColor: palette.accent, marginTop: 10 }]}
-            onPress={() => Linking.openURL('App-Prefs:root=PHONE').catch(() => {})}
+            onPress={async () => {
+              // iOS 15+ often blocca App-Prefs; fallback ad app-settings: per aprire le impostazioni generali.
+              const targets = ['App-Prefs:root=PHONE', 'app-settings:'];
+              for (const url of targets) {
+                try {
+                  const can = await Linking.canOpenURL(url);
+                  if (can) {
+                    await Linking.openURL(url);
+                    return;
+                  }
+                } catch {
+                  // ignore and try next
+                }
+              }
+            }}
           >
             <Text style={[styles.reportText, { color: palette.accent }]}>{t(lang, 'checklistOpenSettings')}</Text>
           </TouchableOpacity>
