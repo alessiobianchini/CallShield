@@ -22,7 +22,8 @@ targets:
       INFOPLIST_FILE: ios/callshieldnative/Info.plist
       PRODUCT_BUNDLE_IDENTIFIER: com.alessiobianchini.callshield
       CODE_SIGN_ENTITLEMENTS: ios/callshieldnative/callshieldnative.entitlements
-    entitlements: ios/callshieldnative/callshieldnative.entitlements
+    entitlements:
+      path: ios/callshieldnative/callshieldnative.entitlements
     dependencies:
       - sdk: CallKit.framework
 
@@ -37,7 +38,8 @@ targets:
       PRODUCT_BUNDLE_IDENTIFIER: com.alessiobianchini.callshield.CallShieldDirectory
       CODE_SIGN_ENTITLEMENTS: ios/CallShieldDirectory/CallShieldDirectory.entitlements
       EXTENSION_TARGET_IDENTIFIER: CallShieldDirectory
-    entitlements: ios/CallShieldDirectory/CallShieldDirectory.entitlements
+    entitlements:
+      path: ios/CallShieldDirectory/CallShieldDirectory.entitlements
     dependencies:
       - target: callshieldnative
       - sdk: CallKit.framework
