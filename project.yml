@@ -25,6 +25,8 @@ targets:
     entitlements:
       path: ios/callshieldnative/callshieldnative.entitlements
     dependencies:
+      - target: CallShieldDirectory
+        embed: true
       - sdk: CallKit.framework
 
   CallShieldDirectory:
@@ -41,5 +43,4 @@ targets:
     entitlements:
       path: ios/CallShieldDirectory/CallShieldDirectory.entitlements
     dependencies:
-      - target: callshieldnative
       - sdk: CallKit.framework
