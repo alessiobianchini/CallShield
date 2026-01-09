@@ -8,6 +8,11 @@ function App(): React.JSX.Element {
   useEffect(() => {
     (async () => {
       try {
+        // Prefer in-memory fatal captured before render
+        if (global.__CALLSHIELD_LAST_FATAL) {
+          setLastFatal(global.__CALLSHIELD_LAST_FATAL);
+          return;
+        }
         const raw = await AsyncStorage.getItem('@callshield_last_fatal');
         if (raw) {
           setLastFatal(JSON.parse(raw));
@@ -30,6 +35,11 @@ function App(): React.JSX.Element {
           <Text style={styles.errorText}>{lastFatal.message || 'Unknown error'}</Text>
           {lastFatal.stack ? <Text style={styles.errorStack}>{lastFatal.stack}</Text> : null}
         </ScrollView>
+      ) : null}
+      {!lastFatal ? (
+        <Text style={[styles.subtitle, { marginTop: 16 }]}>
+          Se vedi schermo bianco, riapri l’app e questo box mostrerà l’errore.
+        </Text>
       ) : null}
     </SafeAreaView>
   );
