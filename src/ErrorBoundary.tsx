@@ -1,78 +1,72 @@
 import React from 'react';
-import { View, Text, StyleSheet, ScrollView } from 'react-native';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import {Button, ScrollView, StyleSheet, Text, View} from 'react-native';
 
-type Props = { children: React.ReactNode };
-type State = { error: Error | null };
+type Props = {
+  children: React.ReactNode;
+};
+
+type State = {
+  error?: Error;
+};
 
 /**
- * Simple error boundary to avoid blank screen on render errors.
- * Shows the error message in release so we can diagnose without Metro.
+ * Minimal error boundary to avoid silent white screens in release.
+ * Shows the error message and stack so we can surface JS failures on device.
  */
-export class ErrorBoundary extends React.Component<Props, State> {
-  state: State = { error: null };
+export default class ErrorBoundary extends React.Component<Props, State> {
+  state: State = {};
 
   static getDerivedStateFromError(error: Error): State {
-    return { error };
+    return {error};
   }
 
-  componentDidCatch(error: Error, info: React.ErrorInfo) {
-    const payload = {
-      message: error?.message,
-      stack: info?.componentStack || error?.stack,
-      ts: Date.now(),
-    };
-    console.error('[ErrorBoundary]', payload);
-    // Persist so we can inspect on next launch if needed.
-    AsyncStorage.setItem('@callshield_last_render_error', JSON.stringify(payload)).catch(() => undefined);
+  componentDidCatch(error: Error, info: React.ErrorInfo): void {
+    console.error('ErrorBoundary caught', error, info.componentStack);
   }
 
-  render() {
-    if (this.state.error) {
-      return (
-        <View style={styles.container}>
-          <Text style={styles.title}>Something went wrong</Text>
-          <Text style={styles.message}>{this.state.error.message}</Text>
-          <ScrollView style={styles.stackBox}>
-            <Text style={styles.stack} selectable>
-              {this.state.error.stack}
-            </Text>
-          </ScrollView>
-        </View>
-      );
+  reset = () => this.setState({error: undefined});
+
+  render(): React.ReactNode {
+    const {error} = this.state;
+    if (!error) {
+      return this.props.children;
     }
-    return this.props.children;
+
+    return (
+      <ScrollView contentContainerStyle={styles.container}>
+        <Text style={styles.title}>Si è verificato un errore</Text>
+        <Text style={styles.message}>{error.message}</Text>
+        {error.stack ? (
+          <Text style={styles.stack} selectable>
+            {error.stack}
+          </Text>
+        ) : null}
+        <Button title="Riprova" onPress={this.reset} />
+      </ScrollView>
+    );
   }
 }
 
 const styles = StyleSheet.create({
   container: {
-    flex: 1,
-    padding: 20,
-    justifyContent: 'flex-start',
-    backgroundColor: '#f8fafc',
+    flexGrow: 1,
+    padding: 24,
+    backgroundColor: '#0f172a',
+    justifyContent: 'center',
+    gap: 12,
   },
   title: {
-    fontSize: 18,
+    color: '#e2e8f0',
+    fontSize: 20,
     fontWeight: '700',
-    color: '#0f172a',
-    marginBottom: 6,
   },
   message: {
-    fontSize: 14,
-    color: '#0f172a',
-    marginBottom: 10,
-  },
-  stackBox: {
-    flex: 1,
-    borderWidth: 1,
-    borderColor: '#cbd5e1',
-    borderRadius: 10,
-    padding: 10,
-    backgroundColor: '#fff',
+    color: '#f1f5f9',
+    fontSize: 16,
   },
   stack: {
+    color: '#cbd5e1',
+    fontFamily: 'Menlo',
     fontSize: 12,
-    color: '#0f172a',
   },
 });
