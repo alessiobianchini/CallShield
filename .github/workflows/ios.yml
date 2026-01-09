@@ -119,6 +119,25 @@ jobs:
           decode "$IOS_PROVISION_PROFILE" "dist"
           decode "$IOS_PROVISION_PROFILE_DIR" "callshielddirectory"
 
+          # Extract names/uuids for later steps
+          parse_profile() {
+            local src="$1"
+            local prefix="$2"
+            if [ -f "$src" ]; then
+              security cms -D -i "$src" > "$src.plist"
+              local uuid name appid
+              uuid=$(/usr/libexec/PlistBuddy -c 'Print :UUID' "$src.plist" 2>/dev/null || true)
+              name=$(/usr/libexec/PlistBuddy -c 'Print :Name' "$src.plist" 2>/dev/null || true)
+              appid=$(/usr/libexec/PlistBuddy -c 'Print :Entitlements:application-identifier' "$src.plist" 2>/dev/null || true)
+              echo "$prefix profile -> $name ($uuid) $appid"
+              echo "${prefix}_UUID=$uuid" >> "$GITHUB_ENV"
+              echo "${prefix}_NAME=$name" >> "$GITHUB_ENV"
+              echo "${prefix}_APPID=$appid" >> "$GITHUB_ENV"
+            fi
+          }
+          parse_profile "$HOME/Library/MobileDevice/Provisioning Profiles/dist.mobileprovision" "PROFILE"
+          parse_profile "$HOME/Library/MobileDevice/Provisioning Profiles/callshielddirectory.mobileprovision" "PROFILE_DIR"
+
       - name: Cache CocoaPods
         uses: actions/cache@v4
         with:
@@ -338,6 +357,7 @@ jobs:
           echo "Using workspace: $IOS_WORKSPACE"
 
           LOG="$RUNNER_TEMP/xcodebuild-archive.log"
+          BUNDLE_ID_DIR="${BUNDLE_ID}.CallShieldDirectory"
 
           xcodebuild \
             -workspace "$IOS_WORKSPACE" \
@@ -351,6 +371,7 @@ jobs:
             CODE_SIGN_STYLE=Manual \
             CODE_SIGN_IDENTITY="Apple Distribution" \
             PROVISIONING_PROFILE_SPECIFIER="$PROFILE_NAME" \
+            PROVISIONING_PROFILE_SPECIFIER[CallShieldDirectory]="${PROFILE_DIR_NAME:-$PROFILE_NAME}" \
             CODE_SIGN_KEYCHAIN="$KEYCHAIN_PATH" \
             OTHER_CODE_SIGN_FLAGS="--keychain $KEYCHAIN_PATH" \
             CURRENT_PROJECT_VERSION="${{ env.BUILD_NUMBER }}" \
@@ -366,6 +387,7 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p "${{ env.EXPORT_PATH }}"
+          BUNDLE_ID_DIR="${BUNDLE_ID}.CallShieldDirectory"
 
           cat > exportOptions.plist <<EOF
           <?xml version="1.0" encoding="UTF-8"?>
@@ -381,6 +403,7 @@ jobs:
             <key>provisioningProfiles</key>
             <dict>
               <key>$BUNDLE_ID</key><string>$PROFILE_NAME</string>
+              <key>$BUNDLE_ID_DIR</key><string>${PROFILE_DIR_NAME:-$PROFILE_NAME}</string>
             </dict>
 
             <key>compileBitcode</key><false/>
