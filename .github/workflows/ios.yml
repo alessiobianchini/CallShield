@@ -99,7 +99,6 @@ jobs:
         shell: bash
         env:
           IOS_PROVISION_PROFILE: ${{ secrets.IOS_PROVISION_PROFILE }}
-          IOS_PROVISION_PROFILE_APP: ${{ secrets.IOS_PROVISION_PROFILE_APP }}
           IOS_PROVISION_PROFILE_DIR: ${{ secrets.IOS_PROVISION_PROFILE_DIR }}
         run: |
           set -euo pipefail
@@ -113,7 +112,6 @@ jobs:
             fi
           }
           decode "$IOS_PROVISION_PROFILE" "dist"
-          decode "$IOS_PROVISION_PROFILE_APP" "app"
           decode "$IOS_PROVISION_PROFILE_DIR" "callshielddirectory"
 
       - name: Cache CocoaPods

@@ -16,7 +16,7 @@ targets:
     type: application
     platform: iOS
     sources:
-      - path: ios/callshieldnative
+      - ios/callshieldnative
     settings:
       INFOPLIST_FILE: ios/callshieldnative/Info.plist
       PRODUCT_BUNDLE_IDENTIFIER: com.alessiobianchini.callshield
@@ -30,7 +30,7 @@ targets:
     type: app-extension
     platform: iOS
     sources:
-      - path: ios/CallShieldDirectory
+      - ios/CallShieldDirectory
     settings:
       INFOPLIST_FILE: ios/CallShieldDirectory/Info.plist
       PRODUCT_BUNDLE_IDENTIFIER: com.alessiobianchini.callshield.CallShieldDirectory
