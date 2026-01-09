@@ -11,11 +11,14 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import ErrorBoundary from './src/ErrorBoundary';
+import {fetchHealth} from './src/api';
 
 function App(): React.JSX.Element {
   const [counter, setCounter] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [health, setHealth] = useState<string>('pending...');
+  const [healthError, setHealthError] = useState<string | null>(null);
 
   useEffect(() => {
     const load = async () => {
@@ -29,6 +32,19 @@ function App(): React.JSX.Element {
       }
     };
     load();
+  }, []);
+
+  useEffect(() => {
+    const check = async () => {
+      try {
+        const res = await fetchHealth();
+        setHealth(res.message);
+        setHealthError(null);
+      } catch (e) {
+        setHealthError((e as Error).message);
+      }
+    };
+    check();
   }, []);
 
   const bump = useCallback(async () => {
@@ -65,6 +81,14 @@ function App(): React.JSX.Element {
             )}
           </View>
           {error ? <Text style={styles.error}>Errore: {error}</Text> : null}
+          <View style={styles.apiCard}>
+            <Text style={styles.sectionTitle}>Backend health</Text>
+            {healthError ? (
+              <Text style={styles.error}>Errore: {healthError}</Text>
+            ) : (
+              <Text style={styles.apiText}>{health}</Text>
+            )}
+          </View>
         </View>
       </SafeAreaView>
     </ErrorBoundary>
@@ -130,6 +154,23 @@ const styles = StyleSheet.create({
   },
   error: {
     color: '#b91c1c',
+  },
+  apiCard: {
+    marginTop: 8,
+    padding: 12,
+    borderRadius: 10,
+    backgroundColor: '#f8fafc',
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
+  },
+  sectionTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#0f172a',
+    marginBottom: 4,
+  },
+  apiText: {
+    color: '#0f172a',
   },
 });
 
