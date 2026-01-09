@@ -91,8 +91,13 @@ jobs:
 
       - name: Generate Xcode project (app + Call Directory extension)
         shell: bash
+        working-directory: ${{ env.WORKING_DIRECTORY }}
         run: |
           set -euo pipefail
+          echo "Spec at: $(pwd)/project.yml"
+          ls -la ios || true
+          ls -la ios/CallShieldDirectory || true
+          ls -la ios/callshieldnative || true
           xcodegen generate --spec project.yml
 
       - name: Install provisioning profiles (app + extension)
