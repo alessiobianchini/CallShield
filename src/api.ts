@@ -1,8 +1,18 @@
+import {NativeModules, Platform} from 'react-native';
+
 // Values are injected at build time via env (secrets in CI).
 // Guard process.env because in Hermes release builds it may be undefined and
 // accessing a property would throw before the app renders.
 const BASE_URL = (process?.env?.EXPO_PUBLIC_API_BASE_URL ?? process?.env?.BASE_URL ?? '').trim();
 const FUNCTION_KEY = (process?.env?.EXPO_PUBLIC_FUNCTION_KEY ?? process?.env?.FUNCTION_KEY ?? '').trim();
+
+const NativeDirectory = NativeModules.CallShieldDirectoryManager;
+
+export type DirectoryEntry = {
+  number: string;
+  label: string;
+  block: boolean;
+};
 
 type ListResponse = {
   version: number;
@@ -64,6 +74,16 @@ export async function ping(): Promise<boolean> {
   const url = new URL('/api/ping', base);
   const res = await fetch(url.toString());
   return res.ok;
+}
+
+export async function syncCallDirectory(entries: DirectoryEntry[]) {
+  if (Platform.OS !== 'ios') return;
+  if (!NativeDirectory || typeof NativeDirectory.sync !== 'function') return;
+  try {
+    await NativeDirectory.sync(entries);
+  } catch (error) {
+    console.warn('syncCallDirectory failed', error);
+  }
 }
 
 export type ReceiptPayload = {
