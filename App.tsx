@@ -15,6 +15,7 @@ import {
   TouchableWithoutFeedback,
   Keyboard,
   FlatList,
+  ActivityIndicator,
 } from 'react-native';
 import { BlurView } from '@react-native-community/blur';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -84,6 +85,7 @@ function App() {
   const [reportNumber, setReportNumber] = useState('');
   const [reportCategory, setReportCategory] = useState<'telemarketing' | 'spam' | 'fraud' | 'other'>('spam');
   const [lastFatal, setLastFatal] = useState<{ message?: string; stack?: string; ts?: number } | null>(null);
+  const [booting, setBooting] = useState(true);
   const blockingEnabled = plusActive && protection.blockingEnabled;
 
   const GlassCard: React.FC<{ children: React.ReactNode }> = ({ children }) => (
@@ -181,6 +183,7 @@ function App() {
         // ignore
       }
       await handleReload(true).catch(() => undefined);
+      setBooting(false);
     })();
     return () => {
       mounted = false;
@@ -353,6 +356,23 @@ function App() {
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: palette.bg }]}>
       <StatusBar barStyle={isDarkMode ? 'light-content' : 'dark-content'} />
+      {booting ? (
+        <View style={[styles.bootContainer, { backgroundColor: palette.bg }]}>
+          <View style={[styles.bootCard, { borderColor: palette.cardBorder, backgroundColor: palette.card }]}>
+            <Text style={[styles.bootLogo, { color: palette.text }]}>CallShield</Text>
+            <Text style={[styles.meta, { color: palette.sub }]}>{t(lang, 'updateLoading')}</Text>
+            <ActivityIndicator color={palette.accent} style={{ marginTop: 12 }} />
+          </View>
+        </View>
+      ) : null}
+      {loading ? (
+        <View style={styles.loaderOverlay}>
+          <View style={[styles.loaderCard, { borderColor: palette.cardBorder, backgroundColor: palette.card }]}>
+            <ActivityIndicator color={palette.accent} style={{ marginRight: 10 }} />
+            <Text style={[styles.meta, { color: palette.text }]}>{t(lang, 'updateLoading')}</Text>
+          </View>
+        </View>
+      ) : null}
       <ScrollView contentContainerStyle={styles.content}>
         {lastFatal ? (
           <GlassCard>
@@ -763,6 +783,46 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderRadius: 10,
     padding: 10,
+  },
+  loaderOverlay: {
+    position: 'absolute',
+    top: 12,
+    alignSelf: 'center',
+    zIndex: 10,
+  },
+  loaderCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    borderRadius: 20,
+    borderWidth: 1,
+    shadowColor: '#000',
+    shadowOpacity: 0.08,
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 4 },
+  },
+  bootContainer: {
+    ...StyleSheet.absoluteFillObject,
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 20,
+  },
+  bootCard: {
+    paddingVertical: 24,
+    paddingHorizontal: 28,
+    borderRadius: 20,
+    borderWidth: 1,
+    alignItems: 'center',
+    gap: 8,
+    shadowColor: '#000',
+    shadowOpacity: 0.12,
+    shadowRadius: 14,
+    shadowOffset: { width: 0, height: 10 },
+  },
+  bootLogo: {
+    fontSize: 24,
+    fontWeight: '800',
   },
 });
 
