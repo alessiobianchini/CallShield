@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState, useCallback } from 'react';
 import {
   Modal,
   SafeAreaView,
@@ -56,6 +56,8 @@ type PersistedState = {
   protection: ProtectionState;
 };
 
+type Tab = 'home' | 'reports' | 'plus' | 'checklist';
+
 const mockCalls: RecentCall[] = [
   { id: '1', number: '+39 02 1234 5678', label: 'Telemarketing', risk: 'high', timeAgo: '3m' },
   { id: '2', number: '+39 06 4432 1189', label: 'Possibile spam', risk: 'medium', timeAgo: '25m' },
@@ -86,6 +88,7 @@ function App() {
   const [reportCategory, setReportCategory] = useState<'telemarketing' | 'spam' | 'fraud' | 'other'>('spam');
   const [lastFatal, setLastFatal] = useState<{ message?: string; stack?: string; ts?: number } | null>(null);
   const [booting, setBooting] = useState(true);
+  const [tab, setTab] = useState<Tab>('home');
   const blockingEnabled = plusActive && protection.blockingEnabled;
 
   const GlassCard: React.FC<{ children: React.ReactNode }> = ({ children }) => (
@@ -373,8 +376,8 @@ function App() {
           </View>
         </View>
       ) : null}
-      <ScrollView contentContainerStyle={styles.content}>
-        {lastFatal ? (
+      <ScrollView contentContainerStyle={[styles.content, { paddingBottom: 120 }]}>
+        {tab === 'home' && lastFatal ? (
           <GlassCard>
             <Text style={[styles.sectionTitle, { color: palette.danger }]}>Last crash (debug info)</Text>
             <Text style={[styles.meta, { color: palette.text, marginTop: 4 }]}>
@@ -398,143 +401,174 @@ function App() {
         <Text style={[styles.subtitle, { color: palette.sub }]}>{t(lang, 'subtitle')}</Text>
         {error ? <Text style={[styles.error, { color: palette.danger }]}>{error}</Text> : null}
 
-        <GlassCard>
-          <View style={styles.rowBetween}>
-            <Text style={[styles.sectionTitle, { color: palette.text }]}>{t(lang, 'paywallTitle')}</Text>
-            <View
-              style={[
-                styles.pill,
-                { backgroundColor: plusActive ? palette.success : palette.card, borderWidth: 1, borderColor: palette.accent },
-              ]}
-            >
-              <Text style={[styles.pillText, { color: plusActive ? '#fff' : palette.accent }]}>
-                {plusActive ? t(lang, 'entitlementActive') : t(lang, 'entitlementInactive')}
-              </Text>
-            </View>
-          </View>
-          <Text style={[styles.meta, { color: palette.sub }]}>{t(lang, 'paywallSubtitle')}</Text>
-          <TouchableOpacity
-            style={[styles.primaryButton, { backgroundColor: palette.accent }]}
-            onPress={() => setPaywallVisible(true)}
-          >
-            <Text style={[styles.primaryText, { color: '#fff' }]}>
-              {t(lang, 'ctaStart')} {paywallPrice ? `- ${paywallPrice}` : ''}
-            </Text>
-          </TouchableOpacity>
-          {iapMessage ? <Text style={[styles.meta, { color: palette.sub, marginTop: 8 }]}>{iapMessage}</Text> : null}
-        </GlassCard>
-
-        <GlassCard>
-          <Text style={[styles.sectionTitle, { color: palette.text }]}>{t(lang, 'protection')}</Text>
-          <View style={styles.rowBetween}>
-            <Text style={[styles.label, { color: palette.text }]}>{t(lang, 'blockToggle')}</Text>
-            <Switch
-              value={blockingEnabled}
-              onValueChange={next => {
-                if (!plusActive) {
-                  setPaywallVisible(true);
-                  return;
-                }
-                toggleBlocking(next);
-              }}
-              thumbColor={palette.card}
-              trackColor={{ true: palette.accent, false: '#b8c2d1' }}
-            />
-          </View>
-          {!plusActive ? <Text style={[styles.meta, { color: palette.sub }]}>{t(lang, 'entitlementUpgrade')}</Text> : null}
-          <View style={styles.rowBetween}>
-            <Text style={[styles.label, { color: palette.text }]}>{t(lang, 'identifyToggle')}</Text>
-            <Switch
-              value={protection.identificationEnabled}
-              onValueChange={toggleIdentification}
-              thumbColor={palette.card}
-              trackColor={{ true: palette.accent, false: '#b8c2d1' }}
-            />
-          </View>
-          <View style={styles.metaRow}>
-            <Text style={[styles.meta, { color: palette.sub }]}>{`${t(lang, 'lastUpdate')} - ${protection.lastUpdate}`}</Text>
-            <TouchableOpacity
-              style={[styles.pill, { backgroundColor: palette.accent }]}
-              onPress={handleReload}
-              disabled={loading}
-            >
-              <Text style={[styles.pillText, { color: '#fff' }]}>{loading ? t(lang, 'updateLoading') : t(lang, 'update')}</Text>
-            </TouchableOpacity>
-          </View>
-        </GlassCard>
-
-        <GlassCard>
-          <View style={styles.rowBetween}>
-            <Text style={[styles.sectionTitle, { color: palette.text }]}>{t(lang, 'reportsTitle')}</Text>
-            <Text style={[styles.badge, { color: palette.accent }]}>{`${t(lang, 'reportsWeek')} ${protection.reportsThisWeek}`}</Text>
-          </View>
-          <Text style={[styles.meta, { color: palette.sub }]}>{t(lang, 'reportHint')}</Text>
-          {calls.length === 0 ? (
-            <Text style={[styles.meta, { color: palette.sub, marginTop: 12 }]}>{t(lang, 'noCalls')}</Text>
-          ) : (
-            calls.map(call => (
-              <View key={call.id} style={[styles.callRow, { borderColor: palette.bg }]}>
-                <View style={{ flex: 1 }}>
-                  <Text style={[styles.callNumber, { color: palette.text }]}>{call.number}</Text>
-                  <Text style={[styles.callLabel, { color: palette.sub }]}>{`${call.label} - ${call.timeAgo}`}</Text>
-                </View>
-                <View style={[styles.riskDot, { backgroundColor: riskToColor(call.risk) }]} />
-                <TouchableOpacity style={[styles.reportButton, { borderColor: palette.accent }]} onPress={() => handleReport(call)}>
-                  <Text style={[styles.reportText, { color: palette.accent }]}>{t(lang, 'reportButton')}</Text>
-                </TouchableOpacity>
+        {(tab === 'home' || tab === 'plus') && (
+          <GlassCard>
+            <View style={styles.rowBetween}>
+              <Text style={[styles.sectionTitle, { color: palette.text }]}>{t(lang, 'paywallTitle')}</Text>
+              <View
+                style={[
+                  styles.pill,
+                  { backgroundColor: plusActive ? palette.success : palette.card, borderWidth: 1, borderColor: palette.accent },
+                ]}
+              >
+                <Text style={[styles.pillText, { color: plusActive ? '#fff' : palette.accent }]}>
+                  {plusActive ? t(lang, 'entitlementActive') : t(lang, 'entitlementInactive')}
+                </Text>
               </View>
-            ))
-          )}
-        </GlassCard>
+            </View>
+            <Text style={[styles.meta, { color: palette.sub }]}>{t(lang, 'paywallSubtitle')}</Text>
+            <TouchableOpacity
+              style={[styles.primaryButton, { backgroundColor: palette.accent }]}
+              onPress={() => setPaywallVisible(true)}
+            >
+              <Text style={[styles.primaryText, { color: '#fff' }]}>
+                {t(lang, 'ctaStart')} {paywallPrice ? `- ${paywallPrice}` : ''}
+              </Text>
+            </TouchableOpacity>
+            {iapMessage ? <Text style={[styles.meta, { color: palette.sub, marginTop: 8 }]}>{iapMessage}</Text> : null}
+          </GlassCard>
+        )}
 
-        <GlassCard>
-          <Text style={[styles.sectionTitle, { color: palette.text }]}>{t(lang, 'checklistTitle')}</Text>
-          <Text style={[styles.meta, { color: palette.sub }]}>{t(lang, 'checklistBody')}</Text>
-          <Text style={[styles.meta, { color: palette.sub, marginTop: 8 }]}>{t(lang, 'checklistPath')}</Text>
-          <Text style={[styles.meta, { color: palette.sub, marginTop: 8 }]}>{t(lang, 'smsInfo')}</Text>
-          <TouchableOpacity
-            style={[styles.outlineButton, { borderColor: palette.accent, marginTop: 10 }]}
-            onPress={async () => {
-              // iOS 15+ often blocca App-Prefs; fallback ad app-settings: per aprire le impostazioni generali.
-              const targets = ['App-Prefs:root=PHONE', 'app-settings:'];
-              for (const url of targets) {
-                try {
-                  const can = await Linking.canOpenURL(url);
-                  if (can) {
-                    await Linking.openURL(url);
+        {(tab === 'home' || tab === 'plus') && (
+          <GlassCard>
+            <Text style={[styles.sectionTitle, { color: palette.text }]}>{t(lang, 'protection')}</Text>
+            <View style={styles.rowBetween}>
+              <Text style={[styles.label, { color: palette.text }]}>{t(lang, 'blockToggle')}</Text>
+              <Switch
+                value={blockingEnabled}
+                onValueChange={next => {
+                  if (!plusActive) {
+                    setPaywallVisible(true);
                     return;
                   }
-                } catch {
-                  // ignore and try next
+                  toggleBlocking(next);
+                }}
+                thumbColor={palette.card}
+                trackColor={{ true: palette.accent, false: '#b8c2d1' }}
+              />
+            </View>
+            {!plusActive ? <Text style={[styles.meta, { color: palette.sub }]}>{t(lang, 'entitlementUpgrade')}</Text> : null}
+            <View style={styles.rowBetween}>
+              <Text style={[styles.label, { color: palette.text }]}>{t(lang, 'identifyToggle')}</Text>
+              <Switch
+                value={protection.identificationEnabled}
+                onValueChange={toggleIdentification}
+                thumbColor={palette.card}
+                trackColor={{ true: palette.accent, false: '#b8c2d1' }}
+              />
+            </View>
+            <View style={styles.metaRow}>
+              <Text style={[styles.meta, { color: palette.sub }]}>{`${t(lang, 'lastUpdate')} - ${protection.lastUpdate}`}</Text>
+              <TouchableOpacity
+                style={[styles.pill, { backgroundColor: palette.accent }]}
+                onPress={handleReload}
+                disabled={loading}
+              >
+                <Text style={[styles.pillText, { color: '#fff' }]}>{loading ? t(lang, 'updateLoading') : t(lang, 'update')}</Text>
+              </TouchableOpacity>
+            </View>
+          </GlassCard>
+        )}
+
+        {(tab === 'home' || tab === 'reports') && (
+          <GlassCard>
+            <View style={styles.rowBetween}>
+              <Text style={[styles.sectionTitle, { color: palette.text }]}>{t(lang, 'reportsTitle')}</Text>
+              <Text style={[styles.badge, { color: palette.accent }]}>{`${t(lang, 'reportsWeek')} ${protection.reportsThisWeek}`}</Text>
+            </View>
+            <Text style={[styles.meta, { color: palette.sub }]}>{t(lang, 'reportHint')}</Text>
+            {calls.length === 0 ? (
+              <Text style={[styles.meta, { color: palette.sub, marginTop: 12 }]}>{t(lang, 'noCalls')}</Text>
+            ) : (
+              calls.map(call => (
+                <View key={call.id} style={[styles.callRow, { borderColor: palette.bg }]}>
+                  <View style={{ flex: 1 }}>
+                    <Text style={[styles.callNumber, { color: palette.text }]}>{call.number}</Text>
+                    <Text style={[styles.callLabel, { color: palette.sub }]}>{`${call.label} - ${call.timeAgo}`}</Text>
+                  </View>
+                  <View style={[styles.riskDot, { backgroundColor: riskToColor(call.risk) }]} />
+                  <TouchableOpacity style={[styles.reportButton, { borderColor: palette.accent }]} onPress={() => handleReport(call)}>
+                    <Text style={[styles.reportText, { color: palette.accent }]}>{t(lang, 'reportButton')}</Text>
+                  </TouchableOpacity>
+                </View>
+              ))
+            )}
+          </GlassCard>
+        )}
+
+        {(tab === 'home' || tab === 'checklist') && (
+          <GlassCard>
+            <Text style={[styles.sectionTitle, { color: palette.text }]}>{t(lang, 'checklistTitle')}</Text>
+            <Text style={[styles.meta, { color: palette.sub }]}>{t(lang, 'checklistBody')}</Text>
+            <Text style={[styles.meta, { color: palette.sub, marginTop: 8 }]}>{t(lang, 'checklistPath')}</Text>
+            <Text style={[styles.meta, { color: palette.sub, marginTop: 8 }]}>{t(lang, 'smsInfo')}</Text>
+            <TouchableOpacity
+              style={[styles.outlineButton, { borderColor: palette.accent, marginTop: 10 }]}
+              onPress={async () => {
+                const targets = ['App-Prefs:root=PHONE', 'app-settings:'];
+                for (const url of targets) {
+                  try {
+                    const can = await Linking.canOpenURL(url);
+                    if (can) {
+                      await Linking.openURL(url);
+                      return;
+                    }
+                  } catch {
+                    // ignore and try next
+                  }
                 }
-              }
-            }}
-          >
-            <Text style={[styles.reportText, { color: palette.accent }]}>{t(lang, 'checklistOpenSettings')}</Text>
-          </TouchableOpacity>
-        </GlassCard>
+              }}
+            >
+              <Text style={[styles.reportText, { color: palette.accent }]}>{t(lang, 'checklistOpenSettings')}</Text>
+            </TouchableOpacity>
+          </GlassCard>
+        )}
 
-        <GlassCard>
-          <Text style={[styles.sectionTitle, { color: palette.text }]}>{t(lang, 'gdprTitle')}</Text>
-          <Text style={[styles.meta, { color: palette.sub, marginBottom: 8 }]}>{t(lang, 'gdprSummary')}</Text>
-          <TouchableOpacity
-            style={[styles.outlineButton, { borderColor: palette.accent }]}
-            onPress={() => setGdprVisible(true)}
-          >
-            <Text style={[styles.reportText, { color: palette.accent }]}>{t(lang, 'gdprOpen')}</Text>
-          </TouchableOpacity>
-        </GlassCard>
+        {(tab === 'home' || tab === 'checklist') && (
+          <GlassCard>
+            <Text style={[styles.sectionTitle, { color: palette.text }]}>{t(lang, 'gdprTitle')}</Text>
+            <Text style={[styles.meta, { color: palette.sub, marginBottom: 8 }]}>{t(lang, 'gdprSummary')}</Text>
+            <TouchableOpacity
+              style={[styles.outlineButton, { borderColor: palette.accent }]}
+              onPress={() => setGdprVisible(true)}
+            >
+              <Text style={[styles.reportText, { color: palette.accent }]}>{t(lang, 'gdprOpen')}</Text>
+            </TouchableOpacity>
+          </GlassCard>
+        )}
 
-        <GlassCard>
-          <Text style={[styles.sectionTitle, { color: palette.text }]}>{t(lang, 'reportNumber')}</Text>
-          <TouchableOpacity
-            style={[styles.primaryButton, { backgroundColor: palette.accent }]}
-            onPress={() => setReportVisible(true)}
-          >
-            <Text style={[styles.primaryText, { color: '#fff' }]}>{t(lang, 'reportNumber')}</Text>
-          </TouchableOpacity>
-        </GlassCard>
+        {(tab === 'home' || tab === 'reports') && (
+          <GlassCard>
+            <Text style={[styles.sectionTitle, { color: palette.text }]}>{t(lang, 'reportNumber')}</Text>
+            <TouchableOpacity
+              style={[styles.primaryButton, { backgroundColor: palette.accent }]}
+              onPress={() => setReportVisible(true)}
+            >
+              <Text style={[styles.primaryText, { color: '#fff' }]}>{t(lang, 'reportNumber')}</Text>
+            </TouchableOpacity>
+          </GlassCard>
+        )}
       </ScrollView>
+
+      <View style={[styles.tabBar, { backgroundColor: palette.card, borderColor: palette.cardBorder }]}>
+        {[
+          { key: 'home', label: 'Home' },
+          { key: 'reports', label: 'Reports' },
+          { key: 'plus', label: 'Plus' },
+          { key: 'checklist', label: 'Checklist' },
+        ].map(item => {
+          const active = tab === item.key;
+          return (
+            <TouchableOpacity
+              key={item.key}
+              style={[styles.tabItem, active && { backgroundColor: palette.accent }]}
+              onPress={() => setTab(item.key as Tab)}
+            >
+              <Text style={[styles.tabText, { color: active ? '#fff' : palette.text }]}>{item.label}</Text>
+            </TouchableOpacity>
+          );
+        })}
+      </View>
 
       <Modal visible={paywallVisible} animationType="slide" transparent onRequestClose={() => setPaywallVisible(false)}>
         <View style={styles.modalBackdrop}>
@@ -837,6 +871,33 @@ const styles = StyleSheet.create({
   bootLogo: {
     fontSize: 24,
     fontWeight: '800',
+  },
+  tabBar: {
+    position: 'absolute',
+    left: 16,
+    right: 16,
+    bottom: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    borderRadius: 14,
+    borderWidth: 1,
+    padding: 6,
+    gap: 6,
+    shadowColor: '#000',
+    shadowOpacity: 0.08,
+    shadowRadius: 10,
+    shadowOffset: { width: 0, height: 4 },
+  },
+  tabItem: {
+    flex: 1,
+    paddingVertical: 10,
+    alignItems: 'center',
+    borderRadius: 10,
+  },
+  tabText: {
+    fontSize: 14,
+    fontWeight: '700',
   },
 });
 
