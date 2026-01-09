@@ -33,13 +33,19 @@ type Keys =
   | 'entitlementUpgrade'
   | 'reportNumber'
   | 'spamType'
+  | 'spamTelemarketing'
+  | 'spamSpam'
+  | 'spamFraud'
+  | 'spamOther'
   | 'submit'
   | 'gdprTitle'
   | 'gdprSummary'
   | 'gdprOpen'
   | 'gdprData'
   | 'gdprRights'
-  | 'gdprContact';
+  | 'gdprContact'
+  | 'smsInfo'
+  | 'checklistOpenSettings';
 
 const translations: Record<Lang, Record<Keys, string>> = {
   it: {
@@ -76,6 +82,10 @@ const translations: Record<Lang, Record<Keys, string>> = {
     entitlementUpgrade: 'Disponibile con Plus',
     reportNumber: 'Segnala numero',
     spamType: 'Tipo di spam',
+    spamTelemarketing: 'Telemarketing',
+    spamSpam: 'Spam',
+    spamFraud: 'Frode',
+    spamOther: 'Altro',
     submit: 'Invia',
     gdprTitle: 'Privacy & GDPR',
     gdprSummary: 'Come trattiamo i dati delle segnalazioni.',
@@ -84,6 +94,9 @@ const translations: Record<Lang, Record<Keys, string>> = {
     gdprRights:
       'Puoi chiedere accesso o cancellazione delle segnalazioni associate al tuo dispositivo. Conserviamo le segnalazioni per prevenire abusi e migliorare la protezione.',
     gdprContact: 'Per richieste GDPR scrivi a privacy@callshield.app',
+    smsInfo:
+      'Per blocco/identificazione: abilita l’estensione CallShield in Impostazioni › Telefono › Blocco e identificazione. Per filtri SMS attiva in Impostazioni › Messaggi › Sconosciuti e spam.',
+    checklistOpenSettings: 'Apri impostazioni Telefono',
   },
   en: {
     title: 'CallShield',
@@ -119,6 +132,10 @@ const translations: Record<Lang, Record<Keys, string>> = {
     entitlementUpgrade: 'Available with Plus',
     reportNumber: 'Report number',
     spamType: 'Spam type',
+    spamTelemarketing: 'Telemarketing',
+    spamSpam: 'Spam',
+    spamFraud: 'Fraud',
+    spamOther: 'Other',
     submit: 'Submit',
     gdprTitle: 'Privacy & GDPR',
     gdprSummary: 'How we process report data.',
@@ -127,6 +144,9 @@ const translations: Record<Lang, Record<Keys, string>> = {
     gdprRights:
       'You can request access or deletion of reports tied to your device. Reports are kept to prevent abuse and improve protection.',
     gdprContact: 'For GDPR requests contact privacy@callshield.app',
+    smsInfo:
+      'To block/identify calls: enable the CallShield extension in Settings › Phone › Blocked & Identified Callers. For SMS filtering, enable in Settings › Messages › Unknown & Spam.',
+    checklistOpenSettings: 'Open Phone settings',
   },
   es: {
     title: 'CallShield',
@@ -162,6 +182,10 @@ const translations: Record<Lang, Record<Keys, string>> = {
     entitlementUpgrade: 'Disponible con Plus',
     reportNumber: 'Reportar número',
     spamType: 'Tipo de spam',
+    spamTelemarketing: 'Telemarketing',
+    spamSpam: 'Spam',
+    spamFraud: 'Fraude',
+    spamOther: 'Otro',
     submit: 'Enviar',
     gdprTitle: 'Privacidad y RGPD',
     gdprSummary: 'Cómo tratamos los datos de los reportes.',
@@ -170,6 +194,9 @@ const translations: Record<Lang, Record<Keys, string>> = {
     gdprRights:
       'Puedes solicitar acceso o eliminación de los reportes vinculados a tu dispositivo. Los reportes se conservan para prevenir abusos y mejorar la protección.',
     gdprContact: 'Para solicitudes RGPD escribe a privacy@callshield.app',
+    smsInfo:
+      'Para bloquear/identificar llamadas: habilita la extensión CallShield en Ajustes › Teléfono › Bloqueo e identificación. Para filtrado SMS, habilita en Ajustes › Mensajes › Desconocidos y spam.',
+    checklistOpenSettings: 'Abrir ajustes de Teléfono',
   },
   fr: {
     title: 'CallShield',
@@ -205,6 +232,10 @@ const translations: Record<Lang, Record<Keys, string>> = {
     entitlementUpgrade: 'Disponible avec Plus',
     reportNumber: 'Signaler un numéro',
     spamType: 'Type de spam',
+    spamTelemarketing: 'Télémarketing',
+    spamSpam: 'Spam',
+    spamFraud: 'Fraude',
+    spamOther: 'Autre',
     submit: 'Envoyer',
     gdprTitle: 'Confidentialité & RGPD',
     gdprSummary: 'Comment nous traitons les données des signalements.',
@@ -214,6 +245,9 @@ const translations: Record<Lang, Record<Keys, string>> = {
     gdprRights:
       'Vous pouvez demander l’accès ou la suppression des signalements liés à votre appareil. Les signalements sont conservés pour prévenir les abus et améliorer la protection.',
     gdprContact: 'Pour les demandes RGPD, écrivez à privacy@callshield.app',
+    smsInfo:
+      'Pour bloquer/identifier les appels : activez l’extension CallShield dans Réglages › Téléphone › Blocage et identification. Pour le filtrage SMS, activez dans Réglages › Messages › Expéditeurs inconnus et spam.',
+    checklistOpenSettings: 'Ouvrir Réglages Téléphone',
   },
   de: {
     title: 'CallShield',
@@ -249,6 +283,10 @@ const translations: Record<Lang, Record<Keys, string>> = {
     entitlementUpgrade: 'Verfügbar mit Plus',
     reportNumber: 'Nummer melden',
     spamType: 'Spam-Typ',
+    spamTelemarketing: 'Telefonmarketing',
+    spamSpam: 'Spam',
+    spamFraud: 'Betrug',
+    spamOther: 'Andere',
     submit: 'Senden',
     gdprTitle: 'Datenschutz & DSGVO',
     gdprSummary: 'Wie wir Meldedaten verarbeiten.',
@@ -258,6 +296,9 @@ const translations: Record<Lang, Record<Keys, string>> = {
     gdprRights:
       'Du kannst Zugriff oder Löschung der mit deinem Gerät verknüpften Meldungen anfordern. Meldungen werden zur Missbrauchsprävention und zur Verbesserung des Schutzes aufbewahrt.',
     gdprContact: 'Für DSGVO-Anfragen: privacy@callshield.app',
+    smsInfo:
+      'Zum Blockieren/Identifizieren: Aktivieren Sie die CallShield-Erweiterung unter Einstellungen › Telefon › Blockierte & identifizierte Anrufer. Für SMS-Filter unter Einstellungen › Nachrichten › Unbekannte Absender & Spam aktivieren.',
+    checklistOpenSettings: 'Telefon-Einstellungen öffnen',
   },
   pt: {
     title: 'CallShield',
@@ -293,6 +334,10 @@ const translations: Record<Lang, Record<Keys, string>> = {
     entitlementUpgrade: 'Disponível com Plus',
     reportNumber: 'Denunciar número',
     spamType: 'Tipo de spam',
+    spamTelemarketing: 'Telemarketing',
+    spamSpam: 'Spam',
+    spamFraud: 'Fraude',
+    spamOther: 'Outro',
     submit: 'Enviar',
     gdprTitle: 'Privacidade e RGPD',
     gdprSummary: 'Como tratamos os dados das denúncias.',
@@ -302,6 +347,9 @@ const translations: Record<Lang, Record<Keys, string>> = {
     gdprRights:
       'Você pode solicitar acesso ou exclusão das denúncias vinculadas ao seu dispositivo. As denúncias são mantidas para prevenir abuso e melhorar a proteção.',
     gdprContact: 'Para pedidos RGPD escreva para privacy@callshield.app',
+    smsInfo:
+      'Para bloquear/identificar chamadas: ative a extensão CallShield em Ajustes › Telefone › Bloqueio e identificação. Para filtro de SMS, ative em Ajustes › Mensagens › Remetentes desconhecidos e spam.',
+    checklistOpenSettings: 'Abrir ajustes de Telefone',
   },
 };
 

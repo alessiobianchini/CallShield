@@ -12,6 +12,9 @@ import {
   View,
   Switch,
   TextInput,
+  TouchableWithoutFeedback,
+  Keyboard,
+  FlatList,
 } from 'react-native';
 import { BlurView } from '@react-native-community/blur';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -79,7 +82,7 @@ function App() {
   const [reportVisible, setReportVisible] = useState(false);
   const [gdprVisible, setGdprVisible] = useState(false);
   const [reportNumber, setReportNumber] = useState('');
-  const [reportCategory, setReportCategory] = useState('');
+  const [reportCategory, setReportCategory] = useState<'telemarketing' | 'spam' | 'fraud' | 'other'>('spam');
   const [lastFatal, setLastFatal] = useState<{ message?: string; stack?: string; ts?: number } | null>(null);
   const blockingEnabled = plusActive && protection.blockingEnabled;
 
@@ -305,7 +308,7 @@ function App() {
       setProtection(prev => ({ ...prev, reportsThisWeek: prev.reportsThisWeek + 1 }));
       setReportVisible(false);
       setReportNumber('');
-      setReportCategory('');
+      setReportCategory('spam');
     } catch (e: any) {
       setError(e.message ?? 'Report failed');
     }
@@ -468,6 +471,13 @@ function App() {
           <Text style={[styles.sectionTitle, { color: palette.text }]}>{t(lang, 'checklistTitle')}</Text>
           <Text style={[styles.meta, { color: palette.sub }]}>{t(lang, 'checklistBody')}</Text>
           <Text style={[styles.meta, { color: palette.sub, marginTop: 8 }]}>{t(lang, 'checklistPath')}</Text>
+          <Text style={[styles.meta, { color: palette.sub, marginTop: 8 }]}>{t(lang, 'smsInfo')}</Text>
+          <TouchableOpacity
+            style={[styles.outlineButton, { borderColor: palette.accent, marginTop: 10 }]}
+            onPress={() => Linking.openURL('App-Prefs:root=PHONE').catch(() => {})}
+          >
+            <Text style={[styles.reportText, { color: palette.accent }]}>{t(lang, 'checklistOpenSettings')}</Text>
+          </TouchableOpacity>
         </GlassCard>
 
         <GlassCard>
@@ -539,12 +549,33 @@ function App() {
               keyboardType="phone-pad"
             />
             <Text style={[styles.label, { color: palette.text, marginTop: 12 }]}>{t(lang, 'spamType')}</Text>
-            <TextInput
-              style={[styles.input, { borderColor: palette.sub, color: palette.text }]}
-              placeholder={t(lang, 'spamType')}
-              placeholderTextColor={palette.sub}
-              value={reportCategory}
-              onChangeText={setReportCategory}
+            <FlatList
+              data={[
+                { key: 'telemarketing', label: 'Telemarketing' },
+                { key: 'spam', label: 'Spam' },
+                { key: 'fraud', label: 'Frode' },
+                { key: 'other', label: 'Altro' },
+              ]}
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={{ gap: 8, paddingVertical: 8 }}
+              renderItem={({ item }) => {
+                const active = reportCategory === item.key;
+                return (
+                  <TouchableOpacity
+                    style={[
+                      styles.categoryChip,
+                      {
+                        borderColor: active ? palette.accent : palette.sub,
+                        backgroundColor: active ? palette.accent : 'transparent',
+                      },
+                    ]}
+                    onPress={() => setReportCategory(item.key as any)}
+                  >
+                    <Text style={[styles.reportText, { color: active ? '#fff' : palette.text }]}>{item.label}</Text>
+                  </TouchableOpacity>
+                );
+              }}
             />
             <TouchableOpacity
               style={[styles.primaryButton, { backgroundColor: palette.accent, marginTop: 12 }]}
@@ -696,6 +727,12 @@ const styles = StyleSheet.create({
   },
   reportText: {
     fontWeight: '700',
+  },
+  categoryChip: {
+    borderWidth: 1,
+    borderRadius: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
   },
   error: {
     fontSize: 14,
