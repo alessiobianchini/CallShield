@@ -1,37 +1,91 @@
-import config from './config';
+// Values are injected at build time via env (secrets in CI).
+// Guard process.env because in Hermes release builds it may be undefined and
+// accessing a property would throw before the app renders.
+const BASE_URL = (process?.env?.EXPO_PUBLIC_API_BASE_URL ?? process?.env?.BASE_URL ?? '').trim();
+const FUNCTION_KEY = (process?.env?.EXPO_PUBLIC_FUNCTION_KEY ?? process?.env?.FUNCTION_KEY ?? '').trim();
 
-export type HealthResult = {
-  ok: boolean;
-  message: string;
+type ListResponse = {
+  version: number;
+  add: Array<{ number: string; label?: string; risk?: string }>;
+  remove: Array<{ number: string }>;
+  update: Array<{ number: string; label?: string; risk?: string }>;
 };
 
-/**
-  * Chiama l'endpoint di health base. Se non è configurato BASE_URL,
-  * usa httpbin per restituire 200.
-  */
-export async function fetchHealth(): Promise<HealthResult> {
-  const base = config.baseUrl?.trim();
-  const url = base
-    ? `${base.replace(/\/$/, '')}/health`
-    : 'https://httpbin.org/status/200';
+function getBase(): string | null {
+  if (!BASE_URL) {
+    console.warn('BASE_URL/EXPO_PUBLIC_API_BASE_URL is not set; skipping network call');
+    return null;
+  }
+  return BASE_URL;
+}
 
-  const res = await fetch(url, {
-    headers: config.functionKey
-      ? { 'x-functions-key': config.functionKey }
-      : undefined,
-  });
+export async function fetchList(since: number): Promise<ListResponse> {
+  const base = getBase();
+  if (!base) {
+    return { version: since, add: [], remove: [], update: [] };
+  }
+  const url = new URL('/api/v1/list', base);
+  url.searchParams.set('since', since.toString());
+  if (FUNCTION_KEY) url.searchParams.set('code', FUNCTION_KEY);
 
+  const res = await fetch(url.toString(), { method: 'GET' });
   if (!res.ok) {
-    throw new Error(`HTTP ${res.status} ${res.statusText}`);
+    throw new Error(`List failed: ${res.status} ${res.statusText}`);
   }
+  return res.json();
+}
 
-  let message = `OK (${res.status})`;
-  try {
-    const data = await res.json();
-    message = typeof data === 'string' ? data : JSON.stringify(data);
-  } catch {
-    // ok, body non json
+export async function reportCall(payload: {
+  number: string;
+  category: string;
+  locale?: string;
+  deviceId?: string;
+  ts?: number;
+}): Promise<void> {
+  const base = getBase();
+  if (!base) return;
+  const url = new URL('/api/v1/report', base);
+  if (FUNCTION_KEY) url.searchParams.set('code', FUNCTION_KEY);
+
+  const res = await fetch(url.toString(), {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  });
+  if (!res.ok) {
+    const text = await res.text();
+    throw new Error(`Report failed: ${res.status} ${text}`);
   }
+}
 
-  return { ok: true, message };
+export async function ping(): Promise<boolean> {
+  const base = getBase();
+  if (!base) return false;
+  const url = new URL('/api/ping', base);
+  const res = await fetch(url.toString());
+  return res.ok;
+}
+
+export type ReceiptPayload = {
+  platform: 'ios' | 'android';
+  productId: string;
+  transactionId?: string;
+  userId?: string;
+  receiptData: string;
+};
+
+export async function sendReceipt(payload: ReceiptPayload): Promise<void> {
+  const base = getBase();
+  if (!base) return;
+  const url = new URL('/api/v1/receipt', base);
+  if (FUNCTION_KEY) url.searchParams.set('code', FUNCTION_KEY);
+  const res = await fetch(url.toString(), {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  });
+  if (!res.ok) {
+    const text = await res.text();
+    throw new Error(`Receipt failed: ${res.status} ${text}`);
+  }
 }

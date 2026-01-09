@@ -20,6 +20,7 @@ if linkage != nil
 end
 
 target 'callshieldnative' do
+  # Disable NitroModules for stability on iOS TestFlight (new arch off)
   config = use_native_modules!
 
   use_react_native!(
@@ -27,6 +28,10 @@ target 'callshieldnative' do
     # An absolute path to your application root.
     :app_path => "#{Pod::Config.instance.installation_root}/.."
   )
+
+  # Ensure critical community modules are linked in release (avoid Native module null)
+  pod 'RNCAsyncStorage', :path => '../node_modules/@react-native-async-storage/async-storage'
+  pod 'react-native-blur', :path => '../node_modules/@react-native-community/blur'
 
   post_install do |installer|
     # https://github.com/facebook/react-native/blob/main/packages/react-native/scripts/react_native_pods.rb#L197-L202

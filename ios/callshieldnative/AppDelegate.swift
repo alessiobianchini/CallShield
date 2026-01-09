@@ -27,7 +27,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
     window = UIWindow(frame: UIScreen.main.bounds)
 
     factory.startReactNative(
-      // Must match the component name registered in index.js / app.json ("CallShield").
+      // Must match the component name registered in app.json ("CallShield")
       withModuleName: "CallShield",
       in: window,
       launchOptions: launchOptions
