@@ -119,20 +119,26 @@ jobs:
           decode "$IOS_PROVISION_PROFILE" "dist"
           decode "$IOS_PROVISION_PROFILE_DIR" "callshielddirectory"
 
+          # Clean any old .plist artifacts that could confuse Xcode
+          find "$HOME/Library/MobileDevice/Provisioning Profiles" -name "*.mobileprovision.plist" -delete || true
+
           # Extract names/uuids for later steps
           parse_profile() {
             local src="$1"
             local prefix="$2"
             if [ -f "$src" ]; then
-              security cms -D -i "$src" > "$src.plist"
+              local tmp_plist
+              tmp_plist="$(mktemp)"
+              security cms -D -i "$src" > "$tmp_plist"
               local uuid name appid
-              uuid=$(/usr/libexec/PlistBuddy -c 'Print :UUID' "$src.plist" 2>/dev/null || true)
-              name=$(/usr/libexec/PlistBuddy -c 'Print :Name' "$src.plist" 2>/dev/null || true)
-              appid=$(/usr/libexec/PlistBuddy -c 'Print :Entitlements:application-identifier' "$src.plist" 2>/dev/null || true)
+              uuid=$(/usr/libexec/PlistBuddy -c 'Print :UUID' "$tmp_plist" 2>/dev/null || true)
+              name=$(/usr/libexec/PlistBuddy -c 'Print :Name' "$tmp_plist" 2>/dev/null || true)
+              appid=$(/usr/libexec/PlistBuddy -c 'Print :Entitlements:application-identifier' "$tmp_plist" 2>/dev/null || true)
               echo "$prefix profile -> $name ($uuid) $appid"
               echo "${prefix}_UUID=$uuid" >> "$GITHUB_ENV"
               echo "${prefix}_NAME=$name" >> "$GITHUB_ENV"
               echo "${prefix}_APPID=$appid" >> "$GITHUB_ENV"
+              rm -f "$tmp_plist"
             fi
           }
           parse_profile "$HOME/Library/MobileDevice/Provisioning Profiles/dist.mobileprovision" "PROFILE"
