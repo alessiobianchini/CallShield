@@ -38,10 +38,6 @@ targets:
       CODE_SIGN_ENTITLEMENTS: ios/CallShieldDirectory/CallShieldDirectory.entitlements
       EXTENSION_TARGET_IDENTIFIER: CallShieldDirectory
     entitlements: ios/CallShieldDirectory/CallShieldDirectory.entitlements
-    info:
-      NSExtension:
-        NSExtensionPointIdentifier: com.apple.callkit.call-directory
-        NSExtensionPrincipalClass: $(PRODUCT_MODULE_NAME).CallDirectoryHandler
     dependencies:
       - target: callshieldnative
       - sdk: CallKit.framework
