@@ -44,6 +44,13 @@ type ProtectionState = {
 };
 
 const LAST_FATAL_KEY = '@callshield_last_fatal';
+const STATE_KEY = '@callshield_state_v1';
+
+type PersistedState = {
+  version: number;
+  calls: RecentCall[];
+  protection: ProtectionState;
+};
 
 const mockCalls: RecentCall[] = [
   { id: '1', number: '+39 02 1234 5678', label: 'Telemarketing', risk: 'high', timeAgo: '3m' },
@@ -56,10 +63,10 @@ function App() {
   const [protection, setProtection] = useState<ProtectionState>({
     blockingEnabled: true,
     identificationEnabled: true,
-    lastUpdate: '09:42',
-    reportsThisWeek: 12,
+    lastUpdate: '—',
+    reportsThisWeek: 0,
   });
-  const [calls, setCalls] = useState<RecentCall[]>(mockCalls);
+  const [calls, setCalls] = useState<RecentCall[]>([]);
   const [version, setVersion] = useState<number>(0);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -155,6 +162,29 @@ function App() {
     else setLang('en');
   }, []);
 
+  // Carica stato persistito e trigger initial sync
+  useEffect(() => {
+    let mounted = true;
+    (async () => {
+      try {
+        const raw = await AsyncStorage.getItem(STATE_KEY);
+        if (raw && mounted) {
+          const parsed: PersistedState = JSON.parse(raw);
+          setCalls(parsed.calls || []);
+          setVersion(parsed.version || 0);
+          setProtection(parsed.protection || protection);
+        }
+      } catch {
+        // ignore
+      }
+      await handleReload(true).catch(() => undefined);
+    })();
+    return () => {
+      mounted = false;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   useEffect(() => {
     let mounted = true;
     (async () => {
@@ -221,8 +251,8 @@ function App() {
     return palette.success;
   };
 
-  const handleReload = async () => {
-    setLoading(true);
+  const handleReload = async (silent = false) => {
+    if (!silent) setLoading(true);
     setError(null);
     try {
       const data = await fetchList(version);
@@ -234,13 +264,19 @@ function App() {
         risk: (item.risk as RiskLevel) ?? 'medium',
         timeAgo: 'now',
       }));
-      setCalls(incoming.length ? incoming : calls);
+      const merged = incoming.length ? incoming : calls;
+      setCalls(merged);
       setVersion(data.version);
-      setProtection(prev => ({ ...prev, lastUpdate: now }));
+      const nextProtection = { ...protection, lastUpdate: now };
+      setProtection(nextProtection);
+      await AsyncStorage.setItem(
+        STATE_KEY,
+        JSON.stringify({ version: data.version, calls: merged, protection: nextProtection }),
+      );
     } catch (e: any) {
       setError(e.message ?? 'Update failed');
     } finally {
-      setLoading(false);
+      if (!silent) setLoading(false);
     }
   };
 
@@ -248,7 +284,12 @@ function App() {
     try {
       await reportCall({ number: call.number, category: call.label || 'spam' });
       setProtection(prev => ({ ...prev, reportsThisWeek: prev.reportsThisWeek + 1 }));
-      setCalls(prev => prev.filter(c => c.id !== call.id));
+      const nextCalls = calls.filter(c => c.id !== call.id);
+      setCalls(nextCalls);
+      await AsyncStorage.setItem(
+        STATE_KEY,
+        JSON.stringify({ version, calls: nextCalls, protection }),
+      );
     } catch (e: any) {
       setError(e.message ?? 'Report failed');
     }
