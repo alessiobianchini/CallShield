@@ -370,8 +370,8 @@ jobs:
             PRODUCT_BUNDLE_IDENTIFIER="$BUNDLE_ID" \
             CODE_SIGN_STYLE=Manual \
             CODE_SIGN_IDENTITY="Apple Distribution" \
-            PROVISIONING_PROFILE_SPECIFIER="$PROFILE_NAME" \
-            PROVISIONING_PROFILE_SPECIFIER[CallShieldDirectory]="${PROFILE_DIR_NAME:-$PROFILE_NAME}" \
+            PROVISIONING_PROFILE_SPECIFIER="${PROFILE_UUID:-$PROFILE_NAME}" \
+            PROVISIONING_PROFILE_SPECIFIER[CallShieldDirectory]="${PROFILE_DIR_UUID:-${PROFILE_DIR_NAME:-$PROFILE_UUID}}" \
             CODE_SIGN_KEYCHAIN="$KEYCHAIN_PATH" \
             OTHER_CODE_SIGN_FLAGS="--keychain $KEYCHAIN_PATH" \
             CURRENT_PROJECT_VERSION="${{ env.BUILD_NUMBER }}" \
@@ -402,8 +402,8 @@ jobs:
 
             <key>provisioningProfiles</key>
             <dict>
-              <key>$BUNDLE_ID</key><string>$PROFILE_NAME</string>
-              <key>$BUNDLE_ID_DIR</key><string>${PROFILE_DIR_NAME:-$PROFILE_NAME}</string>
+              <key>$BUNDLE_ID</key><string>${PROFILE_UUID:-$PROFILE_NAME}</string>
+              <key>$BUNDLE_ID_DIR</key><string>${PROFILE_DIR_UUID:-${PROFILE_DIR_NAME:-$PROFILE_UUID}}</string>
             </dict>
 
             <key>compileBitcode</key><false/>
