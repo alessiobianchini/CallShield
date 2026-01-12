@@ -363,7 +363,6 @@ jobs:
         shell: bash
         env:
           DEVELOPMENT_TEAM: ${{ secrets.APPLE_TEAM_ID }}
-          BUNDLE_ID: ${{ secrets.BUNDLE_ID }}
         run: |
           trap 'echo "::group::xcodebuild log (tail)"; tail -n 200 "$RUNNER_TEMP/xcodebuild-archive.log" || true; echo "::endgroup::"' ERR
           set -euo pipefail
@@ -400,8 +399,6 @@ jobs:
       - name: Export IPA
         working-directory: ${{ env.WORKING_DIRECTORY }}
         shell: bash
-        env:
-          BUNDLE_ID: ${{ secrets.BUNDLE_ID }}
         run: |
           set -euo pipefail
           mkdir -p "${{ env.EXPORT_PATH }}"
