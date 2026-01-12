@@ -547,6 +547,7 @@ jobs:
           sudo gem install fastlane -NV
 
       - name: Upload to TestFlight
+        working-directory: ${{ env.WORKING_DIRECTORY }}
         shell: bash
         run: |
           set -euo pipefail
@@ -563,7 +564,7 @@ jobs:
             --ipa "$IPA_FILE" \
             --skip_waiting_for_build_processing true \
             --changelog "CI build" \
-            --app_identifier com.alessiobianchini.callshield
+            --app_identifier "${{ secrets.BUNDLE_ID }}"
 
       - name: Cleanup (always)
         if: always()
