@@ -481,6 +481,40 @@ jobs:
           fi
           echo "::endgroup::"
 
+      - name: Validate IPA bundle identifiers
+        working-directory: ${{ env.WORKING_DIRECTORY }}
+        shell: bash
+        env:
+          BUNDLE_ID: ${{ secrets.BUNDLE_ID }}
+        run: |
+          set -euo pipefail
+
+          IPA_FILE="$(ls "${{ env.EXPORT_PATH }}"/*.ipa | head -1 || true)"
+          if [ -z "$IPA_FILE" ]; then
+            echo "IPA not found"
+            exit 1
+          fi
+
+          tmp="$(mktemp -d)"
+          unzip -q "$IPA_FILE" -d "$tmp"
+
+          APP_DIR="$(find "$tmp/Payload" -maxdepth 1 -name "*.app" -type d | head -n 1 || true)"
+          if [ -z "$APP_DIR" ]; then
+            echo ".app not found in IPA"
+            exit 1
+          fi
+
+          MAIN_ID=$(/usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' "$APP_DIR/Info.plist" 2>/dev/null || true)
+          echo "Main CFBundleIdentifier: $MAIN_ID"
+          echo "Expected (BUNDLE_ID): $BUNDLE_ID"
+          if [ "$MAIN_ID" != "$BUNDLE_ID" ]; then
+            echo "Mismatch: IPA main bundle id != BUNDLE_ID secret"
+            exit 1
+          fi
+
+          EXT_ID=$(/usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' "$APP_DIR/PlugIns/CallShieldDirectory.appex/Info.plist" 2>/dev/null || true)
+          echo "Extension CFBundleIdentifier (if present): $EXT_ID"
+
       - name: Debug icons inside IPA (extract Assets.car)
         shell: bash
         run: |
@@ -539,6 +573,17 @@ jobs:
 
           # sanity check (non stampa la key)
           ruby -e 'require "json"; j=JSON.parse(File.read("api_key.json")); abort("missing") unless j["key_id"]&&j["issuer_id"]&&j["key"]; puts "api_key.json OK"'
+
+      - name: Debug identifiers before upload
+        working-directory: ${{ env.WORKING_DIRECTORY }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo "Bundle ID (env): ${{ secrets.BUNDLE_ID }}"
+          echo "PROFILE_UUID=$PROFILE_UUID PROFILE_NAME=$PROFILE_NAME"
+          echo "PROFILE_DIR_UUID=$PROFILE_DIR_UUID PROFILE_DIR_NAME=$PROFILE_DIR_NAME"
+          echo "IPA files in ${{ env.EXPORT_PATH }}:"
+          ls -la "${{ env.EXPORT_PATH }}" || true
 
       - name: Install fastlane
         shell: bash
