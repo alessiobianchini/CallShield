@@ -107,6 +107,12 @@ jobs:
         run: |
           set -euo pipefail
           IOS_WORKSPACE=$(find ios -maxdepth 2 -name "*.xcworkspace" | head -n 1)
+          if [ -z "$IOS_WORKSPACE" ]; then
+            echo "No xcworkspace found under ios/"
+            find ios -maxdepth 3 -type f -name "*.xcworkspace" || true
+            exit 1
+          fi
+          echo "Workspace: $IOS_WORKSPACE"
           xcodebuild -workspace "$IOS_WORKSPACE" -scheme "${{ env.IOS_SCHEME }}" -configuration Release -showBuildSettings | \
             grep -E "PRODUCT_BUNDLE_IDENTIFIER|PROVISIONING_PROFILE_SPECIFIER" | sort
 
@@ -410,6 +416,30 @@ jobs:
             ASSETCATALOG_COMPILER_INCLUDE_ALL_APPICON_ASSETS=YES \
             archive | tee "$LOG" | xcpretty
             
+      - name: Force bundle identifiers inside archive
+        working-directory: ${{ env.WORKING_DIRECTORY }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          APP_PATH="$PWD/${{ env.ARCHIVE_PATH }}/Products/Applications"
+          APP_DIR="$(find "$APP_PATH" -maxdepth 1 -name "*.app" -type d | head -n 1 || true)"
+          if [ -z "$APP_DIR" ]; then
+            echo "App dir not found inside archive"
+            ls -la "$APP_PATH" || true
+            exit 1
+          fi
+          PLIST="$APP_DIR/Info.plist"
+          echo "Fixing CFBundleIdentifier in $PLIST to $APP_BUNDLE_ID"
+          /usr/libexec/PlistBuddy -c "Set :CFBundleIdentifier $APP_BUNDLE_ID" "$PLIST"
+          EXT_PLIST="$APP_DIR/PlugIns/CallShieldDirectory.appex/Info.plist"
+          if [ -f "$EXT_PLIST" ]; then
+            EXT_ID="${APP_BUNDLE_ID}.CallShieldDirectory"
+            echo "Fixing extension CFBundleIdentifier to $EXT_ID"
+            /usr/libexec/PlistBuddy -c "Set :CFBundleIdentifier $EXT_ID" "$EXT_PLIST"
+          else
+            echo "Extension Info.plist not found at $EXT_PLIST"
+          fi
+
       - name: Export IPA
         working-directory: ${{ env.WORKING_DIRECTORY }}
         shell: bash
