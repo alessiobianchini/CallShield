@@ -1,4 +1,5 @@
 name: CallShield
+
 options:
   deploymentTarget:
     iOS: "15.1"
@@ -19,11 +20,10 @@ targets:
       - path: ios/callshieldnative
         type: group
     settings:
-      INFOPLIST_FILE: ios/callshieldnative/Info.plist
-      PRODUCT_BUNDLE_IDENTIFIER: com.alessiobianchini.callshield
-      CODE_SIGN_ENTITLEMENTS: ios/callshieldnative/callshieldnative.entitlements
-    entitlements:
-      path: ios/callshieldnative/callshieldnative.entitlements
+      base:
+        INFOPLIST_FILE: ios/callshieldnative/Info.plist
+        PRODUCT_BUNDLE_IDENTIFIER: com.alessiobianchini.callshield
+        CODE_SIGN_ENTITLEMENTS: ios/callshieldnative/callshieldnative.entitlements
     dependencies:
       - target: CallShieldDirectory
         embed: true
@@ -36,11 +36,11 @@ targets:
       - path: ios/CallShieldDirectory
         type: group
     settings:
-      INFOPLIST_FILE: ios/CallShieldDirectory/Info.plist
-      PRODUCT_BUNDLE_IDENTIFIER: com.alessiobianchini.callshield.CallShieldDirectory
-      CODE_SIGN_ENTITLEMENTS: ios/CallShieldDirectory/CallShieldDirectory.entitlements
-      EXTENSION_TARGET_IDENTIFIER: CallShieldDirectory
-    entitlements:
-      path: ios/CallShieldDirectory/CallShieldDirectory.entitlements
+      base:
+        INFOPLIST_FILE: ios/CallShieldDirectory/Info.plist
+        PRODUCT_BUNDLE_IDENTIFIER: com.alessiobianchini.callshield.CallShieldDirectory
+        CODE_SIGN_ENTITLEMENTS: ios/CallShieldDirectory/CallShieldDirectory.entitlements
+        # Important: make sure it can be packaged
+        SKIP_INSTALL: "NO"
     dependencies:
       - sdk: CallKit.framework
