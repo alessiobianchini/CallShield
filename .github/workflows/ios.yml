@@ -14,6 +14,7 @@ env:
   PNPM_STORE_PATH: /Users/runner/.pnpm-store
   EXPO_PUBLIC_API_BASE_URL: ${{ secrets.BASE_URL }}
   EXPO_PUBLIC_FUNCTION_KEY: ${{ secrets.FUNCTION_KEY }}
+  BUNDLE_ID: com.alessiobianchini.callshieldprotect
 
 jobs:
   build-ios:
@@ -188,6 +189,16 @@ jobs:
               exit 1
             fi
           done
+
+      - name: Validate bundle id value
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo "Using BUNDLE_ID: $BUNDLE_ID"
+          if echo "$BUNDLE_ID" | grep -q 'CallShieldDirectory'; then
+            echo "BUNDLE_ID appears to be the extension id (contains CallShieldDirectory). Please set it to the main app id."
+            exit 1
+          fi
 
       - name: Bump build number (CFBundleVersion)
         shell: bash
@@ -484,8 +495,6 @@ jobs:
       - name: Validate IPA bundle identifiers
         working-directory: ${{ env.WORKING_DIRECTORY }}
         shell: bash
-        env:
-          BUNDLE_ID: ${{ secrets.BUNDLE_ID }}
         run: |
           set -euo pipefail
 
@@ -609,7 +618,7 @@ jobs:
             --ipa "$IPA_FILE" \
             --skip_waiting_for_build_processing true \
             --changelog "CI build" \
-            --app_identifier "${{ secrets.BUNDLE_ID }}"
+            --app_identifier "${{ env.BUNDLE_ID }}"
 
       - name: Cleanup (always)
         if: always()
