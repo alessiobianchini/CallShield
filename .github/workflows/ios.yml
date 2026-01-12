@@ -561,6 +561,7 @@ jobs:
           fastlane pilot upload \
             --api_key_path api_key.json \
             --ipa "$IPA_FILE" \
+            --app_identifier "${{ secrets.BUNDLE_ID }}" \
             --skip_waiting_for_build_processing true \
             --changelog "CI build"
 
