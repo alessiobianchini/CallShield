@@ -296,15 +296,26 @@ jobs:
 
       - name: Upload to TestFlight
         shell: bash
+        env:
+          APP_IDENTIFIER: ${{ secrets.BUNDLE_ID }}   # <-- MAIN app bundle id
         run: |
           set -euo pipefail
-          IPA_FILE="$(ls "${{ env.EXPORT_PATH }}"/*.ipa | head -1)"
-          fastlane pilot upload \
+
+          IPA_FILE="$(ls "${{ env.EXPORT_PATH }}"/*.ipa | head -1 || true)"
+          if [ -z "$IPA_FILE" ]; then
+            echo "IPA not found in ${{ env.EXPORT_PATH }}"
+            ls -la "${{ env.EXPORT_PATH }}" || true
+            exit 1
+          fi
+
+          # usa bundle exec se hai Gemfile
+          bundle exec fastlane pilot upload \
             --api_key_path api_key.json \
             --ipa "$IPA_FILE" \
+            --app_identifier "$APP_IDENTIFIER" \
             --skip_waiting_for_build_processing true \
             --changelog "CI build"
-
+            
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
