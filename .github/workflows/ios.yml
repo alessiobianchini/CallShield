@@ -101,10 +101,19 @@ jobs:
           ls -la ios/callshieldnative || true
           xcodegen generate --spec project.yml
 
+      - name: Show build settings (bundle ids)
+        working-directory: ${{ env.WORKING_DIRECTORY }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          IOS_WORKSPACE=$(find ios -maxdepth 2 -name "*.xcworkspace" | head -n 1)
+          xcodebuild -workspace "$IOS_WORKSPACE" -scheme "${{ env.IOS_SCHEME }}" -configuration Release -showBuildSettings | \
+            grep -E "PRODUCT_BUNDLE_IDENTIFIER|PROVISIONING_PROFILE_SPECIFIER" | sort
+
       - name: Install provisioning profiles (app + extension)
         shell: bash
         env:
-          IOS_PROVISION_PROFILE: ${{ secrets.IOS_PROVISION_PROFILE }}
+          IOS_PROVISION_PROFILE_APP: ${{ secrets.IOS_PROVISION_PROFILE_APP }}
           IOS_PROVISION_PROFILE_DIR: ${{ secrets.IOS_PROVISION_PROFILE_DIR }}
         run: |
           set -euo pipefail
@@ -117,7 +126,7 @@ jobs:
               echo "Installed profile: $name"
             fi
           }
-          decode "$IOS_PROVISION_PROFILE" "dist"
+          decode "$IOS_PROVISION_PROFILE_APP" "dist"
           decode "$IOS_PROVISION_PROFILE_DIR" "callshielddirectory"
 
           # Clean any old .plist artifacts that could confuse Xcode
@@ -144,6 +153,11 @@ jobs:
           }
           parse_profile "$HOME/Library/MobileDevice/Provisioning Profiles/dist.mobileprovision" "PROFILE"
           parse_profile "$HOME/Library/MobileDevice/Provisioning Profiles/callshielddirectory.mobileprovision" "PROFILE_DIR"
+
+          if echo "${PROFILE_APPID:-}" | grep -q 'CallShieldDirectory'; then
+            echo "App provisioning profile appid looks like extension ($PROFILE_APPID). Please swap secrets: IOS_PROVISION_PROFILE_APP must be the app profile."
+            exit 1
+          fi
 
       - name: Cache CocoaPods
         uses: actions/cache@v4
@@ -173,17 +187,17 @@ jobs:
         shell: bash
         env:
           IOS_CERT_P12: ${{ secrets.IOS_CERT_P12 }}
-          IOS_PROVISION_PROFILE: ${{ secrets.IOS_PROVISION_PROFILE }}
+          IOS_PROVISION_PROFILE_APP: ${{ secrets.IOS_PROVISION_PROFILE_APP }}
+          IOS_PROVISION_PROFILE_DIR: ${{ secrets.IOS_PROVISION_PROFILE_DIR }}
           KEYCHAIN_PASSWORD: ${{ secrets.KEYCHAIN_PASSWORD }}
           IOS_CERT_PASSWORD: ${{ secrets.IOS_CERT_PASSWORD }}
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
-          BUNDLE_ID: ${{ secrets.BUNDLE_ID }}
           APPLE_APP_STORE_CONNECT_KEY_ID: ${{ secrets.APPLE_APP_STORE_CONNECT_KEY_ID }}
           APPLE_APP_STORE_CONNECT_ISSUER_ID: ${{ secrets.APPLE_APP_STORE_CONNECT_ISSUER_ID }}
           APPLE_APP_STORE_CONNECT_KEY: ${{ secrets.APPLE_APP_STORE_CONNECT_KEY }}
         run: |
           set -euo pipefail
-          for v in IOS_CERT_P12 IOS_PROVISION_PROFILE KEYCHAIN_PASSWORD IOS_CERT_PASSWORD APPLE_TEAM_ID BUNDLE_ID APPLE_APP_STORE_CONNECT_KEY_ID APPLE_APP_STORE_CONNECT_ISSUER_ID APPLE_APP_STORE_CONNECT_KEY; do
+          for v in IOS_CERT_P12 IOS_PROVISION_PROFILE_APP IOS_PROVISION_PROFILE_DIR KEYCHAIN_PASSWORD IOS_CERT_PASSWORD APPLE_TEAM_ID APPLE_APP_STORE_CONNECT_KEY_ID APPLE_APP_STORE_CONNECT_ISSUER_ID APPLE_APP_STORE_CONNECT_KEY; do
             if [ -z "${!v}" ]; then
               echo "Missing or empty: $v"
               exit 1
@@ -431,6 +445,9 @@ jobs:
           ls -la "$HOME/Library/MobileDevice/Provisioning Profiles" || true
           /usr/libexec/PlistBuddy -c 'Print :application-identifier' "$HOME/certs/profile.plist" || true
           echo "APP_BUNDLE_ID=$APP_BUNDLE_ID  PROFILE_NAME=$PROFILE_NAME"
+          echo "::group::exportOptions.plist"
+          cat exportOptions.plist
+          echo "::endgroup::"
 
 
           xcodebuild -exportArchive \

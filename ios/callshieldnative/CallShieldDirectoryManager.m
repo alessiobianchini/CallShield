@@ -17,9 +17,9 @@ RCT_EXPORT_METHOD(sync
 {
   // Work off the main thread to avoid blocking the JS thread.
   dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), ^{
-    NSString *appGroupId = @"group.com.alessiobianchini.callshield";
+    NSString *appGroupId = @"group.com.alessiobianchini.callshieldprotect";
     NSString *fileName = @"callshield_directory.json";
-    NSString *extensionId = @"com.alessiobianchini.callshield.CallShieldDirectory";
+    NSString *extensionId = @"com.alessiobianchini.callshieldprotect.CallShieldDirectory";
 
     NSFileManager *fm = [NSFileManager defaultManager];
     NSURL *containerURL = [fm containerURLForSecurityApplicationGroupIdentifier:appGroupId];
