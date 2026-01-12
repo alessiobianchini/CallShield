@@ -430,7 +430,7 @@ jobs:
           security find-identity -v -p codesigning "$KEYCHAIN_PATH" || true
           ls -la "$HOME/Library/MobileDevice/Provisioning Profiles" || true
           /usr/libexec/PlistBuddy -c 'Print :application-identifier' "$HOME/certs/profile.plist" || true
-          echo "BUNDLE_ID=$BUNDLE_ID  PROFILE_NAME=$PROFILE_NAME"
+          echo "APP_BUNDLE_ID=$APP_BUNDLE_ID  PROFILE_NAME=$PROFILE_NAME"
 
 
           xcodebuild -exportArchive \
@@ -615,7 +615,7 @@ jobs:
             --ipa "$IPA_FILE" \
             --skip_waiting_for_build_processing true \
             --changelog "CI build" \
-            --app_identifier "${{ env.APP_BUNDLE_ID }}"
+            --app_identifier "$APP_BUNDLE_ID"
 
       - name: Cleanup (always)
         if: always()
