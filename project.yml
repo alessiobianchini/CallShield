@@ -22,7 +22,7 @@ targets:
     settings:
       base:
         INFOPLIST_FILE: ios/callshieldnative/Info.plist
-        PRODUCT_BUNDLE_IDENTIFIER: com.alessiobianchini.callshield
+        PRODUCT_BUNDLE_IDENTIFIER: com.alessiobianchini.callshieldprotect
         CODE_SIGN_ENTITLEMENTS: ios/callshieldnative/callshieldnative.entitlements
     dependencies:
       - target: CallShieldDirectory
@@ -38,7 +38,7 @@ targets:
     settings:
       base:
         INFOPLIST_FILE: ios/CallShieldDirectory/Info.plist
-        PRODUCT_BUNDLE_IDENTIFIER: com.alessiobianchini.callshield.CallShieldDirectory
+        PRODUCT_BUNDLE_IDENTIFIER: com.alessiobianchini.callshieldprotect.CallShieldDirectory
         CODE_SIGN_ENTITLEMENTS: ios/CallShieldDirectory/CallShieldDirectory.entitlements
         # Important: make sure it can be packaged
         SKIP_INSTALL: "NO"
