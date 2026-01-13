@@ -99,6 +99,7 @@ jobs:
           ls -la ios || true
           ls -la ios/CallShieldDirectory || true
           ls -la ios/callshieldnative || true
+          rm -rf ios/callshieldnative.xcodeproj ios/callshieldnative.xcworkspace || true
           xcodegen generate --spec project.yml
 
       - name: Show build settings (bundle ids)
@@ -106,15 +107,22 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          IOS_WORKSPACE=$(find ios -maxdepth 2 -name "*.xcworkspace" | head -n 1)
-          if [ -z "$IOS_WORKSPACE" ]; then
-            echo "No xcworkspace found under ios/"
-            find ios -maxdepth 3 -type f -name "*.xcworkspace" || true
-            exit 1
+          IOS_WORKSPACE=$(find . -maxdepth 3 -name "*.xcworkspace" | head -n 1)
+          if [ -n "$IOS_WORKSPACE" ]; then
+            echo "Workspace: $IOS_WORKSPACE"
+            xcodebuild -workspace "$IOS_WORKSPACE" -scheme "${{ env.IOS_SCHEME }}" -configuration Release -showBuildSettings | \
+              grep -E "PRODUCT_BUNDLE_IDENTIFIER|PROVISIONING_PROFILE_SPECIFIER" | sort
+          else
+            IOS_PROJECT=$(find . -maxdepth 3 -name "callshieldnative.xcodeproj" -o -name "CallShield.xcodeproj" | head -n 1)
+            if [ -z "$IOS_PROJECT" ]; then
+              echo "No workspace or project found"
+              find . -maxdepth 3 -name "*.xcodeproj" -o -name "*.xcworkspace" || true
+              exit 1
+            fi
+            echo "Project: $IOS_PROJECT"
+            xcodebuild -project "$IOS_PROJECT" -scheme "${{ env.IOS_SCHEME }}" -configuration Release -showBuildSettings | \
+              grep -E "PRODUCT_BUNDLE_IDENTIFIER|PROVISIONING_PROFILE_SPECIFIER" | sort
           fi
-          echo "Workspace: $IOS_WORKSPACE"
-          xcodebuild -workspace "$IOS_WORKSPACE" -scheme "${{ env.IOS_SCHEME }}" -configuration Release -showBuildSettings | \
-            grep -E "PRODUCT_BUNDLE_IDENTIFIER|PROVISIONING_PROFILE_SPECIFIER" | sort
 
       - name: Install provisioning profiles (app + extension)
         shell: bash
