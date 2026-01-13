@@ -99,7 +99,7 @@ jobs:
           ls -la ios || true
           ls -la ios/CallShieldDirectory || true
           ls -la ios/callshieldnative || true
-          rm -rf ios/callshieldnative.xcodeproj ios/callshieldnative.xcworkspace || true
+          rm -rf ios/callshieldnative.xcodeproj ios/callshieldnative.xcworkspace CallShield.xcodeproj CallShield.xcworkspace || true
           xcodegen generate --spec project.yml
 
       - name: Show build settings (bundle ids)
