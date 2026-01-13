@@ -3,7 +3,7 @@ name: CallShield
 options:
   deploymentTarget:
     iOS: "15.1"
-  xcodeProjPath: ios/callshieldnative.xcodeproj
+  xcodeprojPath: ios/callshieldnative.xcodeproj
   bundleIdPrefix: com.alessiobianchini
   settingPresets: all
 
