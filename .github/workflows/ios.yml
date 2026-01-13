@@ -6,7 +6,7 @@ on:
 env:
   NODE_VERSION: "20"
   WORKING_DIRECTORY: .
-  IOS_WORKSPACE: ios/callshieldnative.xcworkspace
+  IOS_WORKSPACE: ios/CallShield.xcworkspace
   IOS_SCHEME: callshieldnative
   ARCHIVE_PATH: build/CallShield.xcarchive
   EXPORT_PATH: build/ipa
