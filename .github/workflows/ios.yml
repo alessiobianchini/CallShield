@@ -248,14 +248,14 @@ jobs:
         shell: bash
         env:
           IOS_CERT_P12: ${{ secrets.IOS_CERT_P12 }}
-          IOS_PROVISION_PROFILE: ${{ secrets.IOS_PROVISION_PROFILE }}
+          IOS_PROVISION_PROFILE_APP: ${{ secrets.IOS_PROVISION_PROFILE_APP }}
         run: |
           set -euo pipefail
           mkdir -p "$HOME/certs"
 
           # strip CR/LF/spaces to avoid corrupted decode
           printf '%s' "$IOS_CERT_P12" | tr -d '\n\r ' | base64 --decode > "$HOME/certs/dist.p12"
-          printf '%s' "$IOS_PROVISION_PROFILE" | tr -d '\n\r ' | base64 --decode > "$HOME/certs/profile.mobileprovision"
+          printf '%s' "$IOS_PROVISION_PROFILE_APP" | tr -d '\n\r ' | base64 --decode > "$HOME/certs/profile.mobileprovision"
 
           ls -l "$HOME/certs/dist.p12" "$HOME/certs/profile.mobileprovision"
 
